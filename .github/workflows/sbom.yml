@@ -17,6 +17,7 @@ on:
       - "**.md"
       - "docs/**"
       - "**.drawio"
+      - "output/**"
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -33,6 +34,32 @@ env:
   SIDECAR_IMAGE: ghcr.io/tedg-dev/omnibor-sidecar:latest
 
 jobs:
+  # ── Baseline: build only, no sidecar (timing reference) ──
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Build on Amazon Linux 2023 (baseline)
+        env:
+          MVN_VER: "3.9.8"
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            -e MVN_VER="${MVN_VER}" \
+            amazoncorretto:21-al2023 \
+            bash -c '
+              dnf install -y tar gzip &&
+              curl -fsSL "https://archive.apache.org/dist/maven/maven-3/${MVN_VER}/binaries/apache-maven-${MVN_VER}-bin.tar.gz" -o /tmp/mvn.tar.gz &&
+              tar xzf /tmp/mvn.tar.gz -C /opt &&
+              export PATH="/opt/apache-maven-${MVN_VER}/bin:$PATH" &&
+              mvn --version &&
+              mvn package -q
+            '
+
+  # ── Instrumented: build + sidecar SPDX generation ──
   build-and-sbom:
     runs-on: ubuntu-latest
     steps:

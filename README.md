@@ -137,28 +137,56 @@ gh run download --repo tedg-dev/omnibor-java-testapp \
     --name spdx-output --dir ./spdx-output
 ```
 
-## CI Run History
+## Performance Benchmarks
 
-| # | Date (UTC) | Result | Build | Pull Sidecar | SPDX Gen | Total | Commit | Notes |
-|---|-----------|--------|-------|-------------|----------|-------|--------|-------|
-| 5 | 2026-05-08 23:17 | **Pass** | 36s | 21s | 20s | **1m 35s** | `ccc0803` | First full end-to-end success |
-| 4 | 2026-05-08 23:10 | Fail | — | — | — | 55s | `2738b5b` | `analyze.py` not found in sidecar (app/ not baked in) |
-| 3 | 2026-05-08 23:09 | Fail | fail | — | — | 35s | `b1a10ba` | `gzip: stdin: not in gzip format` (dlcdn mirror returned HTML) |
-| 2 | 2026-05-08 23:07 | Fail | fail | — | — | 40s | `2c0d822` | Maven Central 403 (AL2023 system Maven 3.8.4 too old) |
-| 1 | 2026-05-08 22:55 | Fail | pass | fail | — | 61s | `2c0d822` | Sidecar image not yet on GHCR |
+Each CI run executes two parallel jobs on identical GitHub Actions
+runners: a **baseline** (build only) and an **instrumented** run
+(build + sidecar SPDX). The sidecar adds zero overhead to the build
+itself — all analysis runs post-build.
 
-### Run #5 — Step Timing Breakdown
+### Baseline vs Instrumented
 
-| Step | Started (UTC) | Completed (UTC) | Duration |
-|------|--------------|-----------------|----------|
-| Set up job | 23:17:03 | 23:17:05 | 2s |
-| Checkout | 23:17:05 | 23:17:05 | <1s |
-| **Build on Amazon Linux 2023** | 23:17:05 | 23:17:41 | **36s** |
-| Login to GHCR | 23:17:41 | 23:17:42 | 1s |
-| **Pull sidecar image** | 23:17:42 | 23:18:03 | **21s** |
-| **Generate SPDX via sidecar** | 23:18:03 | 23:18:23 | **20s** |
-| Upload SPDX output | 23:18:23 | 23:18:24 | 1s |
-| Summary | 23:18:24 | 23:18:24 | <1s |
+<!-- Update this table after each CI run -->
+| Run | Date (UTC) | Baseline Build | Instrumented Build | Sidecar Analysis | Instrumented Total | Overhead | Overhead % |
+|-----|-----------|---------------|-------------------|-----------------|-------------------|----------|-----------|
+| 6 | *(pending — first run with baseline job)* | | | | | | |
+| 5 | 2026-05-08 23:17 | ~36s *(est.)* | 36s | 20s (14.1s pipeline) | 56s | +20s | **+56%** |
+
+> **Note:** Run #5 did not have a separate baseline job. The baseline
+> estimate uses the instrumented run's build step, which is identical
+> (sidecar mode does not modify the build command).
+
+### Sidecar Analysis Phase Breakdown
+
+The sidecar analysis (Phase 1 + Phase 2) runs inside the sidecar
+container after the build completes:
+
+| Run | Date (UTC) | Phase 1: Build Interception | Phase 2: SPDX Generation | Total Analysis | Notes |
+|-----|-----------|---------------------------|-------------------------|---------------|-------|
+| 6 | *(pending)* | | | | |
+| 5 | 2026-05-08 23:17 | ~10s *(est.)* | ~4s *(est.)* | 14.1s | Pipeline reports 14.1s; CI step 20s (includes container startup) |
+
+**Phase 1 — Build Interception** includes:
+- `mvn clean` + `mvn package -DskipTests` (re-build inside sidecar)
+- `bomsh_create_bom_java.py` (bytecode SourceFile attr → treedb)
+- `mvn dependency:tree -DoutputType=dot` (dep graph capture)
+
+**Phase 2 — SPDX Generation** includes:
+- `java_generator.py` (treedb + dep graph → SPDX 2.3 JSON)
+- Build tool detection (`javac -version`, `mvn --version`)
+- SPDX validation (semantic checks)
+- HTML visualization generation (D3.js force-graph)
+
+### CI Run Log
+
+| # | Date (UTC) | Result | Commit | Notes |
+|---|-----------|--------|--------|-------|
+| 6 | *(pending)* | | | First run with baseline job |
+| 5 | 2026-05-08 23:17 | **Pass** | `ccc0803` | First full end-to-end success |
+| 4 | 2026-05-08 23:10 | Fail | `2738b5b` | `analyze.py` not found in sidecar (app/ not baked in) |
+| 3 | 2026-05-08 23:09 | Fail | `b1a10ba` | `gzip: stdin: not in gzip format` (dlcdn mirror returned HTML) |
+| 2 | 2026-05-08 23:07 | Fail | `2c0d822` | Maven Central 403 (AL2023 system Maven 3.8.4 too old) |
+| 1 | 2026-05-08 22:55 | Fail | `2c0d822` | Sidecar image not yet on GHCR |
 
 ### Fixes Applied
 
