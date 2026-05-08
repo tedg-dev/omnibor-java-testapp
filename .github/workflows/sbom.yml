@@ -1,0 +1,97 @@
+# OmniBOR Sidecar SPDX Generation
+#
+# Builds the Java application on Amazon Linux 2023 (Corretto 21),
+# then runs the OmniBOR sidecar container to generate SPDX SBOMs
+# from the build artifacts — no SYS_PTRACE, no strace, no bomtrace.
+#
+# Environment comparison:
+#   EC2 standalone:  Ubuntu 22.04 + OpenJDK 21 + strace/bomtrace3
+#   This pipeline:   Amazon Linux 2023 + Corretto 21 + dep:tree sidecar
+
+name: Build & SPDX
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "**.drawio"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  SIDECAR_IMAGE: ghcr.io/tedg-dev/omnibor-sidecar:latest
+
+jobs:
+  build-and-sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      # ── Step 1: Build inside Amazon Linux 2023 / Corretto 21 ──
+      - name: Build on Amazon Linux 2023
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            amazoncorretto:21-al2023 \
+            bash -c "dnf install -y maven && mvn package -q"
+
+      # ── Step 2: Pull OmniBOR sidecar image ──
+      - name: Login to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772  # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull sidecar image
+        run: docker pull "$SIDECAR_IMAGE"
+
+      # ── Step 3: Run sidecar SPDX analysis ──
+      # The sidecar container:
+      #   - Runs mvn dependency:tree (no strace/ptrace)
+      #   - Runs bomsh_create_bom_java.py (bytecode SourceFile analysis)
+      #   - Generates SPDX 2.3 JSON (build + analyzed SBOMs)
+      - name: Generate SPDX via sidecar
+        run: |
+          mkdir -p "${{ github.workspace }}/spdx-output"
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace/repos/omnibor-java-testapp" \
+            -v "${{ github.workspace }}/spdx-output:/workspace/output" \
+            -e OMNIBOR_MODE=sidecar \
+            "$SIDECAR_IMAGE" \
+            python3 /workspace/app/analyze.py \
+              --repo omnibor-java-testapp \
+              --mode sidecar \
+              --skip-clone
+
+      # ── Step 4: Upload SPDX artifacts ──
+      - name: Upload SPDX output
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: spdx-output
+          path: spdx-output/
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          echo "## SPDX Output" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          find "${{ github.workspace }}/spdx-output" \
+            -name "*.spdx.json" -type f | \
+            while read -r f; do
+              echo "- \`$(basename "$f")\`" >> "$GITHUB_STEP_SUMMARY"
+            done

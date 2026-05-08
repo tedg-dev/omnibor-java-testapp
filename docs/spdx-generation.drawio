@@ -1,0 +1,92 @@
+<mxfile host="app.diagrams.net" modified="2026-05-08" agent="OmniBOR" type="device">
+  <diagram id="spdx-1" name="SPDX Generation Flow">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="Metadata Collection → SPDX 2.3 JSON → Visualization" style="text;html=1;fontSize=20;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="600" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== DATA SOURCES ===== -->
+        <mxCell id="ds-title" value="Data Sources (collected by sidecar)" style="text;html=1;fontSize=14;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="300" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Source 1: Bytecode analysis -->
+        <mxCell id="ds1" value="bomsh_create_bom_java.py&#xa;(Bytecode SourceFile Analysis)&#xa;&#xa;Input: target/classes/**/*.class&#xa;&#xa;For each .class file:&#xa;  1. Read .class binary (CAFEBABE magic)&#xa;  2. Parse constant pool entries&#xa;  3. Find SourceFile attribute&#xa;  4. Map class → source via path similarity&#xa;&#xa;Output: OmniBOR treedb&#xa;  JAR → class → source.java&#xa;  (SHA-256 hashes for provenance)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="130" width="300" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- Source 2: Dependency tree -->
+        <mxCell id="ds2" value="mvn dependency:tree -DoutputType=dot&#xa;(Maven Dependency Graph)&#xa;&#xa;Input: pom.xml&#xa;&#xa;DOT output parsed to extract:&#xa;  • groupId:artifactId:version&#xa;  • scope (compile, runtime, test, provided)&#xa;  • direct vs transitive&#xa;  • dependency hierarchy&#xa;&#xa;Output: List of DependencyNode objects&#xa;  {group, artifact, version, scope, children}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="300" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- Source 3: Build tools -->
+        <mxCell id="ds3" value="Build Tool Detection&#xa;(subprocess version queries)&#xa;&#xa;javac -version → &quot;javac 21.0.x&quot;&#xa;mvn --version → &quot;Apache Maven 3.9.x&quot;&#xa;&#xa;Output: Tool name + version" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="40" y="670" width="300" height="130" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== SPDX GENERATOR ===== -->
+        <mxCell id="gen-title" value="SPDX Generator (java_generator.py)" style="text;html=1;fontSize=14;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="440" y="80" width="320" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="gen" value="JavaSpdxGenerator&#xa;&#xa;1. Create document metadata&#xa;   • SPDXVersion: SPDX-2.3&#xa;   • namespace: https://omnibor.io/...&#xa;   • creators: [Tool: omnibor-analysis]&#xa;&#xa;2. Create root package&#xa;   • name: omnibor-java-testapp&#xa;   • version: 1.0.0&#xa;   • downloadLocation: git+https://...&#xa;   • primaryPackagePurpose: APPLICATION&#xa;   • PURL: pkg:maven/com.example/testapp@1.0.0&#xa;&#xa;3. Add dependency packages (from dep:tree)&#xa;   • jsoup → DEPENDS_ON root&#xa;   • log4j-core → DEPENDS_ON root&#xa;   • log4j-api → DEPENDS_ON log4j-core&#xa;   • bcprov → DEPENDS_ON root&#xa;   Each with: version, PURL, supplier, scope&#xa;&#xa;4. Add build tools (BUILD_TOOL_OF root)&#xa;   • javac 21.x (primaryPackagePurpose: APPLICATION)&#xa;   • maven 3.9.x (primaryPackagePurpose: APPLICATION)&#xa;&#xa;5. Emit DESCRIBES relationship&#xa;   • SPDXRef-DOCUMENT DESCRIBES root" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="440" y="130" width="320" height="460" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrows: data sources → generator -->
+        <mxCell id="eds1" value="treedb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;fontStyle=2;fontSize=9;" edge="1" parent="1" source="ds1" target="gen">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eds2" value="dep graph" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;fontStyle=2;fontSize=9;" edge="1" parent="1" source="ds2" target="gen">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eds3" value="tool versions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;fontStyle=2;fontSize=9;" edge="1" parent="1" source="ds3" target="gen">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== OUTPUT: Two SBOMs ===== -->
+        <mxCell id="out-title" value="Output SBOMs" style="text;html=1;fontSize=14;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="80" width="180" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Build SBOM -->
+        <mxCell id="build-sbom" value="testapp_build.spdx.json&#xa;(CISA Build SBOM)&#xa;&#xa;Contains:&#xa;• Root package (APPLICATION)&#xa;• All compile-scope deps (LIBRARY)&#xa;• Build tools: javac, maven&#xa;&#xa;Relationships:&#xa;• DESCRIBES (doc → root)&#xa;• DEPENDS_ON (root → dep)&#xa;• DEPENDS_ON (dep → transitive)&#xa;• BUILD_TOOL_OF (tool → root)&#xa;&#xa;Use case: build provenance,&#xa;supply chain audit" style="shape=document;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="130" width="260" height="280" as="geometry"/>
+        </mxCell>
+
+        <!-- Analyzed SBOM -->
+        <mxCell id="analyzed-sbom" value="testapp_analyzed.spdx.json&#xa;(CISA Analyzed SBOM)&#xa;&#xa;Contains:&#xa;• Root package (APPLICATION)&#xa;• All compile-scope deps (LIBRARY)&#xa;• NO build tools&#xa;&#xa;Relationships:&#xa;• DESCRIBES (doc → root)&#xa;• DEPENDS_ON (root → dep)&#xa;• DEPENDS_ON (dep → transitive)&#xa;&#xa;Use case: vulnerability scanning,&#xa;license compliance" style="shape=document;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="860" y="440" width="260" height="260" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrows: generator → SBOMs -->
+        <mxCell id="eout1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;" edge="1" parent="1" source="gen" target="build-sbom">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="eout2" value="strip BUILD_TOOL_OF" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontStyle=2;fontSize=9;" edge="1" parent="1" source="gen" target="analyzed-sbom">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== GOLDEN FILE COMPARISON ===== -->
+        <mxCell id="golden" value="Golden File Comparison&#xa;&#xa;CI SPDX compared against&#xa;tests/golden/spdx/java/testapp/&#xa;in omnibor-analysis repo.&#xa;&#xa;SpdxStructuralComparator checks:&#xa;• Package count (old → new)&#xa;• Relationship types match&#xa;• Version strings present&#xa;• PURL format correct&#xa;• No unexpected additions/removals" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="130" width="280" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="egold" value="compare" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;fontStyle=2;fontSize=9;dashed=1;" edge="1" parent="1" source="build-sbom" target="golden">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Example SPDX snippet -->
+        <mxCell id="example" value="Example SPDX Relationship (build SBOM):&#xa;&#xa;{&#xa;  &quot;spdxElementId&quot;: &quot;SPDXRef-Package-root&quot;,&#xa;  &quot;relationshipType&quot;: &quot;DEPENDS_ON&quot;,&#xa;  &quot;relatedSpdxElement&quot;: &quot;SPDXRef-Package-jsoup&quot;&#xa;}&#xa;{&#xa;  &quot;spdxElementId&quot;: &quot;SPDXRef-BuildTool-javac&quot;,&#xa;  &quot;relationshipType&quot;: &quot;BUILD_TOOL_OF&quot;,&#xa;  &quot;relatedSpdxElement&quot;: &quot;SPDXRef-Package-root&quot;&#xa;}" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontSize=9;align=left;spacingLeft=10;fontFamily=Courier New;size=20;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="400" width="340" height="240" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

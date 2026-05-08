@@ -1,0 +1,72 @@
+<mxfile host="app.diagrams.net" modified="2026-05-08" agent="OmniBOR" type="device">
+  <diagram id="intercept-1" name="Build Interception — Standalone vs Sidecar">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Title -->
+        <mxCell id="title" value="Build Interception: Standalone (strace) vs Sidecar (dep:tree)" style="text;html=1;fontSize=20;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="350" y="20" width="600" height="40" as="geometry"/>
+        </mxCell>
+
+        <!-- ===== LEFT: Standalone ===== -->
+        <mxCell id="sa-group" value="Standalone Mode (EC2 — Ubuntu 22.04)" style="swimlane;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="520" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="sa-req" value="⚠ Requires:&#xa;• SYS_PTRACE capability&#xa;• strace + bomtrace3 binaries&#xa;• Ubuntu / Debian host" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;size=15;" vertex="1" parent="sa-group">
+          <mxGeometry x="20" y="40" width="220" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="sa1" value="1. strace -f -e trace=openat mvn package&#xa;&#xa;bomtrace3 wraps the build command&#xa;and records every openat() syscall" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="sa-group">
+          <mxGeometry x="20" y="140" width="460" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="sa2" value="2. Kernel intercepts syscalls&#xa;&#xa;strace captures every file open:&#xa;  openat(AT_FDCWD, &quot;src/main/java/App.java&quot;, O_RDONLY)&#xa;  openat(AT_FDCWD, &quot;target/classes/App.class&quot;, O_WRONLY)&#xa;&#xa;Produces: /tmp/bomsh_hook_raw_logfile.sha1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="sa-group">
+          <mxGeometry x="20" y="230" width="460" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="sa3" value="3. bomsh_create_bom_java.py&#xa;&#xa;Parses strace log to map:&#xa;  javac opened App.java → wrote App.class&#xa;  jar opened App.class → wrote app.jar&#xa;&#xa;Produces: OmniBOR treedb (SHA-256 provenance)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="sa-group">
+          <mxGeometry x="20" y="370" width="460" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="sa4" value="4. SPDX Generation&#xa;&#xa;java_generator.py combines treedb +&#xa;dependency graph → SPDX 2.3 JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" vertex="1" parent="sa-group">
+          <mxGeometry x="20" y="500" width="460" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="esa12" style="rounded=1;" edge="1" parent="sa-group" source="sa1" target="sa2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="esa23" style="rounded=1;" edge="1" parent="sa-group" source="sa2" target="sa3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="esa34" style="rounded=1;" edge="1" parent="sa-group" source="sa3" target="sa4"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ===== RIGHT: Sidecar ===== -->
+        <mxCell id="sc-group" value="Sidecar Mode (CI — Amazon Linux 2023)" style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="80" width="520" height="700" as="geometry"/>
+        </mxCell>
+        <mxCell id="sc-req" value="✓ No special requirements:&#xa;• No SYS_PTRACE&#xa;• No strace / bomtrace&#xa;• Any OS with JDK + Maven" style="shape=note;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;size=15;" vertex="1" parent="sc-group">
+          <mxGeometry x="20" y="40" width="220" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="sc1" value="1. mvn package (unmodified)&#xa;&#xa;Build runs normally with zero&#xa;instrumentation — no strace prefix,&#xa;no env var changes, no wrappers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="sc-group">
+          <mxGeometry x="20" y="140" width="460" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="sc2" value="2. bomsh_create_bom_java.py (no strace log)&#xa;&#xa;Without a strace log, falls back to&#xa;bytecode SourceFile attribute analysis:&#xa;&#xa;For each .class in target/:&#xa;  Read bytes 0-3 (magic: 0xCAFEBABE)&#xa;  Parse constant pool → find SourceFile attr&#xa;  attr value = &quot;App.java&quot;&#xa;  Match to src/main/java/**/App.java by path similarity&#xa;&#xa;Produces: OmniBOR treedb (same schema as standalone)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="sc-group">
+          <mxGeometry x="20" y="240" width="460" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="sc3" value="3. mvn dependency:tree -DoutputType=dot&#xa;&#xa;Runs Maven's built-in dep:tree plugin:&#xa;  &quot;com.example:testapp:1.0.0&quot; -&gt; &quot;org.jsoup:jsoup:1.18.3&quot;&#xa;  &quot;com.example:testapp:1.0.0&quot; -&gt; &quot;org.apache.logging.log4j:log4j-core:2.24.3&quot;&#xa;  &quot;org.apache.logging.log4j:log4j-core:2.24.3&quot; -&gt; &quot;org.apache.logging.log4j:log4j-api:2.24.3&quot;&#xa;&#xa;Parser extracts: artifact coords, scope, direct vs transitive" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="sc-group">
+          <mxGeometry x="20" y="430" width="460" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="sc4" value="4. SPDX Generation&#xa;&#xa;java_generator.py combines treedb +&#xa;dependency graph → SPDX 2.3 JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" vertex="1" parent="sc-group">
+          <mxGeometry x="20" y="580" width="460" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="esc12" style="rounded=1;" edge="1" parent="sc-group" source="sc1" target="sc2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="esc23" style="rounded=1;" edge="1" parent="sc-group" source="sc2" target="sc3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="esc34" style="rounded=1;" edge="1" parent="sc-group" source="sc3" target="sc4"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- Equivalence arrow -->
+        <mxCell id="equiv" value="Structurally&#xa;Equivalent&#xa;SPDX Output" style="shape=doubleArrow;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;arrowWidth=0.4;arrowSize=0.3;" vertex="1" parent="1">
+          <mxGeometry x="520" y="800" width="160" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- Key difference callout -->
+        <mxCell id="diff" value="KEY DIFFERENCE&#xa;&#xa;Standalone: kernel-level syscall interception&#xa;(strace sees every file open/close)&#xa;&#xa;Sidecar: post-build static analysis&#xa;(bytecode SourceFile attr + Maven dep graph)&#xa;&#xa;Both produce the same OmniBOR treedb schema&#xa;and feed into the same SPDX generator." style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;size=20;fontStyle=0;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="300" width="320" height="190" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
