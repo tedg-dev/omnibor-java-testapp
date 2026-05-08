@@ -38,11 +38,11 @@ realistic, non-Ubuntu, non-OpenJDK environment.
 
 ## Environment Comparison
 
-The sidecar pipeline uses two completely independent containers that
-share **nothing** — different OS, different package manager, different
-JDK vendor, and different installed software. The CI build container
-runs the project's normal build with zero modifications. The sidecar
-container then analyzes the build artifacts to generate SPDX.
+The test application pipeline uses two completely independent containers
+that share **nothing** — different OS, different package manager,
+different JDK vendor, and different installed software. The CI build
+container runs the project's normal build with zero modifications. The
+sidecar container then analyzes the build artifacts to generate SPDX.
 
 ### CI Build Container
 
