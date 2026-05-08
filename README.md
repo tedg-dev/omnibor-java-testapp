@@ -1,12 +1,23 @@
-# OmniBOR Java Test Application
+# OmniBOR Java Sidecar Test Environment
 
-A realistic Java application for **end-to-end validation** of the OmniBOR
-sidecar SPDX generation pipeline in CI/CD environments.
+> **This is the Java sidecar test environment.** OmniBOR maintains a
+> separate test environment for each supported language — each with its
+> own repository, build toolchain, OS, and CI/CD pipeline. The goal is
+> to prove that the OmniBOR sidecar produces correct SPDX SBOMs from
+> any language's build artifacts, on any OS, without modifying the
+> build process.
+>
+> | Language | Test Repository | Build System | CI Build OS |
+> |----------|----------------|-------------|-------------|
+> | **Java** | **this repo** | Maven / Corretto 21 | Amazon Linux 2023 |
+> | C | *(planned)* | make / gcc | *(TBD)* |
+> | Go | *(planned)* | go build | *(TBD)* |
+> | Rust | *(planned)* | cargo | *(TBD)* |
 
-This project simulates a real product team integrating OmniBOR's sidecar
-container into their existing CI/CD pipeline to produce SPDX 2.3 SBOMs
-without requiring `SYS_PTRACE`, `strace`, or any kernel-level build
-interception.
+This project is a realistic Java application that simulates a product
+team integrating OmniBOR's sidecar container into their existing CI/CD
+pipeline to produce SPDX 2.3 SBOMs — without requiring `SYS_PTRACE`,
+`strace`, or any kernel-level build interception.
 
 ## Architecture
 
