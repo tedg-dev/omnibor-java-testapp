@@ -1,11 +1,12 @@
-# OmniBOR Java Sidecar Test Environment
+# OmniBOR Analysis Java Sidecar Test Environment
 
-> **This is the Java sidecar test environment.** OmniBOR maintains a
-> separate test environment for each supported language — each with its
-> own repository, build toolchain, OS, and CI/CD pipeline. The goal is
-> to prove that the OmniBOR sidecar produces correct SPDX SBOMs from
-> any language's build artifacts, on any OS, without modifying the
-> build process.
+> **This is the Java sidecar test environment.** The
+> [omnibor-analysis](https://github.com/tedg-dev/omnibor-analysis)
+> project maintains a separate test environment for each supported
+> language — each with its own repository, build toolchain, OS, and
+> CI/CD pipeline. The goal is to prove that the omnibor-analysis
+> sidecar produces correct SPDX SBOMs from any language's build
+> artifacts, on any OS, without modifying the build process.
 >
 > | Language | Test Repository | Build System | CI Build OS |
 > |----------|----------------|-------------|-------------|
@@ -15,7 +16,7 @@
 > | Rust | *(planned)* | cargo | *(TBD)* |
 
 This project is a realistic Java application that simulates a product
-team integrating OmniBOR's sidecar container into their existing CI/CD
+team integrating the omnibor-analysis sidecar container into their existing CI/CD
 pipeline to produce SPDX 2.3 SBOMs — without requiring `SYS_PTRACE`,
 `strace`, or any kernel-level build interception.
 
@@ -33,7 +34,7 @@ pipeline to produce SPDX 2.3 SBOMs — without requiring `SYS_PTRACE`,
 
 ## Why This Project Exists
 
-The OmniBOR standalone pipeline runs on Ubuntu 22.04 with OpenJDK and
+The omnibor-analysis standalone pipeline runs on Ubuntu 22.04 with OpenJDK and
 uses `strace` + `bomtrace3` (requiring `SYS_PTRACE` capability) to
 intercept build commands. This is unsuitable for most enterprise CI/CD
 environments where:
@@ -57,8 +58,8 @@ sidecar container then analyzes the build artifacts to generate SPDX.
 
 ### CI Build Container
 
-The project builds inside the team's own container image — no OmniBOR
-tooling is installed, and the build command is unmodified:
+The project builds inside the team's own container image — no
+omnibor-analysis tooling is installed, and the build command is unmodified:
 
 | Aspect | Detail |
 |--------|--------|
@@ -142,7 +143,7 @@ our standalone analysis environment.
 [![Build Interception: Standalone vs Sidecar](docs/build-interception.png)](docs/build-interception.png)
 *Click to view full-size diagram ([editable source](docs/build-interception.drawio))*
 
-After the build, the OmniBOR sidecar container runs:
+After the build, the omnibor-analysis sidecar container runs:
 
 ```
 docker run ghcr.io/tedg-dev/omnibor-sidecar:latest \
