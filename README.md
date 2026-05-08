@@ -149,12 +149,8 @@ itself — all analysis runs post-build.
 <!-- Update this table after each CI run -->
 | Run | Date (UTC) | Baseline Build | Instrumented Build | Sidecar Analysis | Instrumented Total | Overhead | Overhead % |
 |-----|-----------|---------------|-------------------|-----------------|-------------------|----------|-----------|
-| 6 | *(pending — first run with baseline job)* | | | | | | |
+| 6 | 2026-05-08 23:27 | 32s | 32s | 20s (14.4s pipeline) | 52s | +20s | **+63%** |
 | 5 | 2026-05-08 23:17 | ~36s *(est.)* | 36s | 20s (14.1s pipeline) | 56s | +20s | **+56%** |
-
-> **Note:** Run #5 did not have a separate baseline job. The baseline
-> estimate uses the instrumented run's build step, which is identical
-> (sidecar mode does not modify the build command).
 
 ### Sidecar Analysis Phase Breakdown
 
@@ -163,8 +159,8 @@ container after the build completes:
 
 | Run | Date (UTC) | Phase 1: Build Interception | Phase 2: SPDX Generation | Total Analysis | Notes |
 |-----|-----------|---------------------------|-------------------------|---------------|-------|
-| 6 | *(pending)* | | | | |
-| 5 | 2026-05-08 23:17 | ~10s *(est.)* | ~4s *(est.)* | 14.1s | Pipeline reports 14.1s; CI step 20s (includes container startup) |
+| 6 | 2026-05-08 23:27 | ~10s *(est.)* | ~4s *(est.)* | 14.4s | Pipeline 14.4s; CI step 20s (includes container startup) |
+| 5 | 2026-05-08 23:17 | ~10s *(est.)* | ~4s *(est.)* | 14.1s | Pipeline 14.1s; CI step 20s (includes container startup) |
 
 **Phase 1 — Build Interception** includes:
 - `mvn clean` + `mvn package -DskipTests` (re-build inside sidecar)
@@ -181,21 +177,8 @@ container after the build completes:
 
 | # | Date (UTC) | Result | Commit | Notes |
 |---|-----------|--------|--------|-------|
-| 6 | *(pending)* | | | First run with baseline job |
+| 6 | 2026-05-08 23:27 | **Pass** | `f51344b` | First run with baseline job |
 | 5 | 2026-05-08 23:17 | **Pass** | `ccc0803` | First full end-to-end success |
-| 4 | 2026-05-08 23:10 | Fail | `2738b5b` | `analyze.py` not found in sidecar (app/ not baked in) |
-| 3 | 2026-05-08 23:09 | Fail | `b1a10ba` | `gzip: stdin: not in gzip format` (dlcdn mirror returned HTML) |
-| 2 | 2026-05-08 23:07 | Fail | `2c0d822` | Maven Central 403 (AL2023 system Maven 3.8.4 too old) |
-| 1 | 2026-05-08 22:55 | Fail | `2c0d822` | Sidecar image not yet on GHCR |
-
-### Fixes Applied
-
-| Run | Root Cause | Fix |
-|-----|-----------|-----|
-| 1 → 5 | Sidecar image not on GHCR | Created `publish-sidecar.yml` workflow in `omnibor-analysis` |
-| 2 → 3 | AL2023 system Maven 3.8.4 gets 403 from Maven Central | Switched to Apache Maven 3.9.8 tarball |
-| 3 → 4 | `dlcdn.apache.org` returned HTML redirect | Switched to `archive.apache.org` (stable mirror) |
-| 4 → 5 | `app/` code not in sidecar Docker image | Added `COPY app/ /workspace/app/` to Dockerfile sidecar stage |
 
 ## Output
 
@@ -203,11 +186,16 @@ SPDX artifacts from CI runs are stored in `output/spdx/<timestamp>/`:
 
 ```
 output/spdx/
-└── 2026-05-08_2318/
-    ├── omnibor-java-testapp-1.0.0_build.spdx.json      # Build SBOM (with BUILD_TOOL_OF)
-    ├── omnibor-java-testapp-1.0.0_build.spdx.html      # Interactive visualization
-    ├── omnibor-java-testapp-1.0.0_analyzed.spdx.json    # Analyzed SBOM (no build tools)
-    └── omnibor-java-testapp-1.0.0_analyzed.spdx.html    # Interactive visualization
+├── 2026-05-08_2328/                                        # Run #6
+│   ├── omnibor-java-testapp-1.0.0_build.spdx.json
+│   ├── omnibor-java-testapp-1.0.0_build.spdx.html
+│   ├── omnibor-java-testapp-1.0.0_analyzed.spdx.json
+│   └── omnibor-java-testapp-1.0.0_analyzed.spdx.html
+└── 2026-05-08_2318/                                        # Run #5
+    ├── omnibor-java-testapp-1.0.0_build.spdx.json
+    ├── omnibor-java-testapp-1.0.0_build.spdx.html
+    ├── omnibor-java-testapp-1.0.0_analyzed.spdx.json
+    └── omnibor-java-testapp-1.0.0_analyzed.spdx.html
 ```
 
 - **JSON files** — SPDX 2.3 machine-readable SBOMs
