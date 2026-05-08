@@ -41,15 +41,20 @@ jobs:
 
       # ── Step 1: Build inside Amazon Linux 2023 / Corretto 21 ──
       - name: Build on Amazon Linux 2023
+        env:
+          MVN_VER: "3.9.8"
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/project" \
             -w /project \
+            -e MVN_VER="${MVN_VER}" \
             amazoncorretto:21-al2023 \
             bash -c '
               dnf install -y tar gzip &&
-              curl -sL https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz | tar xz -C /opt &&
-              export PATH=/opt/apache-maven-3.9.9/bin:$PATH &&
+              curl -fsSL "https://archive.apache.org/dist/maven/maven-3/${MVN_VER}/binaries/apache-maven-${MVN_VER}-bin.tar.gz" -o /tmp/mvn.tar.gz &&
+              tar xzf /tmp/mvn.tar.gz -C /opt &&
+              export PATH="/opt/apache-maven-${MVN_VER}/bin:$PATH" &&
+              mvn --version &&
               mvn package -q
             '
 
