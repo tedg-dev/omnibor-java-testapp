@@ -137,6 +137,54 @@ gh run download --repo tedg-dev/omnibor-java-testapp \
     --name spdx-output --dir ./spdx-output
 ```
 
+## CI Run History
+
+| # | Date (UTC) | Result | Build | Pull Sidecar | SPDX Gen | Total | Commit | Notes |
+|---|-----------|--------|-------|-------------|----------|-------|--------|-------|
+| 5 | 2026-05-08 23:17 | **Pass** | 36s | 21s | 20s | **1m 35s** | `ccc0803` | First full end-to-end success |
+| 4 | 2026-05-08 23:10 | Fail | — | — | — | 55s | `2738b5b` | `analyze.py` not found in sidecar (app/ not baked in) |
+| 3 | 2026-05-08 23:09 | Fail | fail | — | — | 35s | `b1a10ba` | `gzip: stdin: not in gzip format` (dlcdn mirror returned HTML) |
+| 2 | 2026-05-08 23:07 | Fail | fail | — | — | 40s | `2c0d822` | Maven Central 403 (AL2023 system Maven 3.8.4 too old) |
+| 1 | 2026-05-08 22:55 | Fail | pass | fail | — | 61s | `2c0d822` | Sidecar image not yet on GHCR |
+
+### Run #5 — Step Timing Breakdown
+
+| Step | Started (UTC) | Completed (UTC) | Duration |
+|------|--------------|-----------------|----------|
+| Set up job | 23:17:03 | 23:17:05 | 2s |
+| Checkout | 23:17:05 | 23:17:05 | <1s |
+| **Build on Amazon Linux 2023** | 23:17:05 | 23:17:41 | **36s** |
+| Login to GHCR | 23:17:41 | 23:17:42 | 1s |
+| **Pull sidecar image** | 23:17:42 | 23:18:03 | **21s** |
+| **Generate SPDX via sidecar** | 23:18:03 | 23:18:23 | **20s** |
+| Upload SPDX output | 23:18:23 | 23:18:24 | 1s |
+| Summary | 23:18:24 | 23:18:24 | <1s |
+
+### Fixes Applied
+
+| Run | Root Cause | Fix |
+|-----|-----------|-----|
+| 1 → 5 | Sidecar image not on GHCR | Created `publish-sidecar.yml` workflow in `omnibor-analysis` |
+| 2 → 3 | AL2023 system Maven 3.8.4 gets 403 from Maven Central | Switched to Apache Maven 3.9.8 tarball |
+| 3 → 4 | `dlcdn.apache.org` returned HTML redirect | Switched to `archive.apache.org` (stable mirror) |
+| 4 → 5 | `app/` code not in sidecar Docker image | Added `COPY app/ /workspace/app/` to Dockerfile sidecar stage |
+
+## Output
+
+SPDX artifacts from CI runs are stored in `output/spdx/<timestamp>/`:
+
+```
+output/spdx/
+└── 2026-05-08_2318/
+    ├── omnibor-java-testapp-1.0.0_build.spdx.json      # Build SBOM (with BUILD_TOOL_OF)
+    ├── omnibor-java-testapp-1.0.0_build.spdx.html      # Interactive visualization
+    ├── omnibor-java-testapp-1.0.0_analyzed.spdx.json    # Analyzed SBOM (no build tools)
+    └── omnibor-java-testapp-1.0.0_analyzed.spdx.html    # Interactive visualization
+```
+
+- **JSON files** — SPDX 2.3 machine-readable SBOMs
+- **HTML files** — Interactive D3.js force-graph visualizations (open in browser)
+
 ## Local Development
 
 ### Prerequisites
