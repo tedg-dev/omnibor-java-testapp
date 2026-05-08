@@ -49,7 +49,7 @@
         <mxCell id="s5b" parent="s5-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" value="mvn dependency:tree&#xa;-DoutputType=dot&#xa;&#xa;Capture full dependency&#xa;graph (direct + transitive)" vertex="1">
           <mxGeometry height="100" width="200" x="250" y="40" as="geometry" />
         </mxCell>
-        <mxCell id="s5c" parent="s5-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" value="java_generator.py&#xa;&#xa;Combine treedb + dep graph&#xa;→ SPDX 2.3 JSON&#xa;(build + analyzed SBOMs)" vertex="1">
+        <mxCell id="s5c" parent="s5-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" value="java_generator.py&#xa;&#xa;Combine treedb + dep graph&#xa;→ SPDX 2.3 JSON + HTML viz&#xa;(build + analyzed SBOMs&#xa; + D3.js force-graph HTML)" vertex="1">
           <mxGeometry height="100" width="200" x="480" y="40" as="geometry" />
         </mxCell>
         <mxCell id="e5ab" edge="1" parent="s5-group" source="s5a" style="rounded=1;fontStyle=2;fontSize=9;" target="s5c" value="treedb">
@@ -58,7 +58,7 @@
         <mxCell id="e5bc" edge="1" parent="s5-group" source="s5b" style="rounded=1;fontStyle=2;fontSize=9;" target="s5c" value="dep graph">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="s6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="6. actions/upload-artifact@v4&#xa;Upload SPDX JSON as CI artifacts&#xa;(90-day retention)" vertex="1">
+        <mxCell id="s6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" value="6. actions/upload-artifact@v4&#xa;Upload SPDX JSON + HTML visualizations&#xa;as CI artifacts (90-day retention)" vertex="1">
           <mxGeometry height="70" width="280" x="850" y="700" as="geometry" />
         </mxCell>
         <mxCell id="e12" edge="1" parent="1" source="s1" style="rounded=1;strokeColor=#333;" target="s2">
