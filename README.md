@@ -10,8 +10,8 @@ interception.
 
 ## Architecture
 
-See [`docs/architecture.drawio`](docs/architecture.drawio) for the full
-system diagram.
+[![System Architecture](docs/architecture.png)](docs/architecture.png)
+*Click to view full-size diagram ([editable source](docs/architecture.drawio))*
 
 | Component | Description |
 |-----------|-------------|
@@ -61,9 +61,8 @@ Chosen to exercise different dependency graph shapes:
 
 ## How It Works
 
-See [`docs/ci-pipeline-flow.drawio`](docs/ci-pipeline-flow.drawio) and
-[`docs/build-interception.drawio`](docs/build-interception.drawio) for
-visual diagrams.
+[![CI/CD Pipeline Flow](docs/ci-pipeline-flow.png)](docs/ci-pipeline-flow.png)
+*Click to view full-size diagram ([editable source](docs/ci-pipeline-flow.drawio))*
 
 ### 1. Build Phase (Amazon Linux 2023)
 
@@ -80,6 +79,9 @@ This produces `target/omnibor-java-testapp-1.0.0.jar` with all compiled
 our standalone analysis environment.
 
 ### 2. Sidecar Analysis Phase
+
+[![Build Interception: Standalone vs Sidecar](docs/build-interception.png)](docs/build-interception.png)
+*Click to view full-size diagram ([editable source](docs/build-interception.drawio))*
 
 After the build, the OmniBOR sidecar container runs:
 
@@ -108,6 +110,9 @@ declared dependency graph in DOT format. The parser extracts:
 - **Optional/provided scope** (annotated but included)
 
 ### 3. SPDX Generation
+
+[![SPDX Generation Flow](docs/spdx-generation.png)](docs/spdx-generation.png)
+*Click to view full-size diagram ([editable source](docs/spdx-generation.drawio))*
 
 The Java SPDX generator (`app/spdx/java_generator.py`) combines both
 data sources into SPDX 2.3 JSON documents:
@@ -175,12 +180,12 @@ python3 tests/compare_spdx.py \
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [`docs/architecture.drawio`](docs/architecture.drawio) | System architecture: repos, containers, registries |
-| [`docs/ci-pipeline-flow.drawio`](docs/ci-pipeline-flow.drawio) | CI/CD pipeline step-by-step flow |
-| [`docs/build-interception.drawio`](docs/build-interception.drawio) | How sidecar intercepts builds without strace |
-| [`docs/spdx-generation.drawio`](docs/spdx-generation.drawio) | Metadata collection → SPDX → visualization |
+| Diagram | Preview | Editable Source |
+|---------|---------|-----------------|
+| System Architecture | [`architecture.png`](docs/architecture.png) | [`architecture.drawio`](docs/architecture.drawio) |
+| CI/CD Pipeline Flow | [`ci-pipeline-flow.png`](docs/ci-pipeline-flow.png) | [`ci-pipeline-flow.drawio`](docs/ci-pipeline-flow.drawio) |
+| Build Interception | [`build-interception.png`](docs/build-interception.png) | [`build-interception.drawio`](docs/build-interception.drawio) |
+| SPDX Generation | [`spdx-generation.png`](docs/spdx-generation.png) | [`spdx-generation.drawio`](docs/spdx-generation.drawio) |
 
 ## License
 
