@@ -38,15 +38,77 @@ realistic, non-Ubuntu, non-OpenJDK environment.
 
 ## Environment Comparison
 
-| Aspect | EC2 Standalone | This CI Pipeline |
-|--------|---------------|-----------------|
-| **OS** | Ubuntu 22.04 (dpkg) | Amazon Linux 2023 (dnf/rpm) |
-| **JDK** | OpenJDK 21 (apt) | Amazon Corretto 21 |
-| **Maven** | Apache 3.9.15 | AL2023 system Maven |
-| **Interception** | strace + bomtrace3 | dep:tree only |
-| **SYS_PTRACE** | Required | Not used |
-| **Build host** | EC2 c6i.xlarge | GitHub Actions runner |
-| **Package manager** | apt/dpkg | dnf/rpm |
+The standalone and CI environments share **nothing** — different OS,
+different package manager, different JDK vendor, different build
+instrumentation, and vastly different installed software. The sidecar
+produces structurally equivalent SPDX output from both.
+
+### Operating System & Package Manager
+
+| Aspect | EC2 Standalone Container | CI Build Container |
+|--------|-------------------------|-------------------|
+| **Base image** | `ubuntu:22.04` | `amazoncorretto:21-al2023` |
+| **OS family** | Debian / Ubuntu | Amazon Linux 2023 (Fedora-based) |
+| **Package manager** | `apt` / `dpkg` | `dnf` / `rpm` |
+| **Kernel** | EC2 c6i.xlarge (5.x) | GitHub Actions runner |
+| **Init system** | None (Docker) | None (Docker) |
+| **Shell** | `bash` (Ubuntu) | `bash` (AL2023) |
+
+### Java Toolchain
+
+| Aspect | EC2 Standalone Container | CI Build Container |
+|--------|-------------------------|-------------------|
+| **JDK vendor** | OpenJDK (Ubuntu apt) | Amazon Corretto (AL2023 bundled) |
+| **JDK version** | 21 (+ JDK 17 also installed) | 21 |
+| **Maven version** | Apache 3.9.15 (tarball) + 3.6.3 (apt) | Apache 3.9.8 (tarball) |
+| **Maven source** | `dlcdn.apache.org` tarball | `archive.apache.org` tarball |
+| **JAVA_HOME** | `/usr/lib/jvm/java-21-openjdk-amd64` | `/usr/lib/jvm/java-21-amazon-corretto` |
+
+### Build Instrumentation
+
+| Aspect | EC2 Standalone Container | CI Build Container |
+|--------|-------------------------|-------------------|
+| **Interception method** | `strace` + `bomtrace3` (kernel syscall tracing) | None — build is unmodified |
+| **SYS_PTRACE capability** | **Required** | **Not used** |
+| **strace** | v6.11 (compiled from source with bomsh patches) | Not installed |
+| **bomtrace2** | Installed (`/opt/bomsh/bin/bomtrace2`) | Not installed |
+| **bomtrace3** | Installed (`/opt/bomsh/bin/bomtrace3`) | Not installed |
+| **bomsh scripts** | Full set (`/opt/bomsh/scripts/`) | Not installed |
+| **Build wrapping** | `bomtrace3 mvn package` wraps the build command | `mvn package` runs directly |
+
+### Sidecar Analysis Container
+
+After the CI build completes, the **sidecar container** (`ghcr.io/tedg-dev/omnibor-sidecar`) runs separately:
+
+| Aspect | Sidecar Container |
+|--------|------------------|
+| **Base image** | `ubuntu:22.04` |
+| **JDK** | OpenJDK 17 + 21 (apt) |
+| **Maven** | Apache 3.9.15 + 3.6.3 |
+| **Python** | 3.x + omnibor-analysis pipeline |
+| **bomsh scripts** | `bomsh_create_bom_java.py` (bytecode reader only) |
+| **bomtrace binaries** | **Not installed** — no strace, no bomtrace |
+| **SYS_PTRACE** | **Not required** |
+| **Analysis method** | Bytecode SourceFile attr + `mvn dependency:tree` |
+
+### Other Software Installed (Standalone Only)
+
+The standalone container includes toolchains for all supported
+languages — **none of which exist in the CI build container**:
+
+| Software | Standalone | CI Build |
+|----------|-----------|---------|
+| **C/C++ compilers** (gcc, g++, clang) | Installed | Not installed |
+| **Build systems** (make, cmake, ninja, autotools) | Installed | Not installed |
+| **Go SDK** (1.26.0) | Installed | Not installed |
+| **Rust toolchain** (stable via rustup) | Installed | Not installed |
+| **Syft** (manifest-based SBOM) | Installed | Not installed |
+| **strace** (v6.11 patched) | Installed | Not installed |
+| **C library dev headers** (libssl-dev, zlib1g-dev, etc.) | Installed | Not installed |
+| **Media codec libs** (libx264, libx265, libvpx, etc.) | Installed | Not installed |
+| **Binary analysis tools** (binutils, elfutils, xxd) | Installed | Not installed |
+| **Python 3 + pip** | Installed | Not installed |
+| **git, wget, curl** | Installed | `curl` only (via dnf) |
 
 ## Dependencies
 
