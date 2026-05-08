@@ -38,77 +38,63 @@ realistic, non-Ubuntu, non-OpenJDK environment.
 
 ## Environment Comparison
 
-The standalone and CI environments share **nothing** — different OS,
-different package manager, different JDK vendor, different build
-instrumentation, and vastly different installed software. The sidecar
-produces structurally equivalent SPDX output from both.
+The sidecar pipeline uses two completely independent containers that
+share **nothing** — different OS, different package manager, different
+JDK vendor, and different installed software. The CI build container
+runs the project's normal build with zero modifications. The sidecar
+container then analyzes the build artifacts to generate SPDX.
 
-### Operating System & Package Manager
+### CI Build Container
 
-| Aspect | EC2 Standalone Container | CI Build Container |
-|--------|-------------------------|-------------------|
-| **Base image** | `ubuntu:22.04` | `amazoncorretto:21-al2023` |
-| **OS family** | Debian / Ubuntu | Amazon Linux 2023 (Fedora-based) |
-| **Package manager** | `apt` / `dpkg` | `dnf` / `rpm` |
-| **Kernel** | EC2 c6i.xlarge (5.x) | GitHub Actions runner |
-| **Init system** | None (Docker) | None (Docker) |
-| **Shell** | `bash` (Ubuntu) | `bash` (AL2023) |
+The project builds inside the team's own container image — no OmniBOR
+tooling is installed, and the build command is unmodified:
 
-### Java Toolchain
-
-| Aspect | EC2 Standalone Container | CI Build Container |
-|--------|-------------------------|-------------------|
-| **JDK vendor** | OpenJDK (Ubuntu apt) | Amazon Corretto (AL2023 bundled) |
-| **JDK version** | 21 (+ JDK 17 also installed) | 21 |
-| **Maven version** | Apache 3.9.15 (tarball) + 3.6.3 (apt) | Apache 3.9.8 (tarball) |
-| **Maven source** | `dlcdn.apache.org` tarball | `archive.apache.org` tarball |
-| **JAVA_HOME** | `/usr/lib/jvm/java-21-openjdk-amd64` | `/usr/lib/jvm/java-21-amazon-corretto` |
-
-### Build Instrumentation
-
-| Aspect | EC2 Standalone Container | CI Build Container |
-|--------|-------------------------|-------------------|
-| **Interception method** | `strace` + `bomtrace3` (kernel syscall tracing) | None — build is unmodified |
-| **SYS_PTRACE capability** | **Required** | **Not used** |
-| **strace** | v6.11 (compiled from source with bomsh patches) | Not installed |
-| **bomtrace2** | Installed (`/opt/bomsh/bin/bomtrace2`) | Not installed |
-| **bomtrace3** | Installed (`/opt/bomsh/bin/bomtrace3`) | Not installed |
-| **bomsh scripts** | Full set (`/opt/bomsh/scripts/`) | Not installed |
-| **Build wrapping** | `bomtrace3 mvn package` wraps the build command | `mvn package` runs directly |
+| Aspect | Detail |
+|--------|--------|
+| **Base image** | `amazoncorretto:21-al2023` |
+| **OS family** | Amazon Linux 2023 (Fedora-based, `dnf` / `rpm`) |
+| **JDK vendor** | Amazon Corretto 21 |
+| **JAVA_HOME** | `/usr/lib/jvm/java-21-amazon-corretto` |
+| **Maven** | Apache 3.9.8 (`archive.apache.org` tarball) |
+| **Build command** | `mvn package -q` (unmodified — no wrappers) |
+| **Build instrumentation** | **None** |
+| **SYS_PTRACE** | **Not used** |
+| **strace / bomtrace** | **Not installed** |
+| **Python** | Not installed |
+| **Go / Rust / C toolchains** | Not installed |
+| **bomsh scripts** | Not installed |
+| **Other packages** | `tar`, `gzip`, `curl` (via `dnf`) — nothing else |
 
 ### Sidecar Analysis Container
 
-After the CI build completes, the **sidecar container** (`ghcr.io/tedg-dev/omnibor-sidecar`) runs separately:
+After the build completes, the sidecar container
+(`ghcr.io/tedg-dev/omnibor-sidecar`) runs on the same build artifacts:
 
-| Aspect | Sidecar Container |
-|--------|------------------|
-| **Base image** | `ubuntu:22.04` |
-| **JDK** | OpenJDK 17 + 21 (apt) |
+| Aspect | Detail |
+|--------|--------|
+| **Base image** | `ubuntu:22.04` (Debian-based, `apt` / `dpkg`) |
+| **JDK** | OpenJDK 17 + 21 (Ubuntu apt) |
+| **JAVA_HOME** | `/usr/lib/jvm/java-21-openjdk-amd64` |
 | **Maven** | Apache 3.9.15 + 3.6.3 |
 | **Python** | 3.x + omnibor-analysis pipeline |
-| **bomsh scripts** | `bomsh_create_bom_java.py` (bytecode reader only) |
-| **bomtrace binaries** | **Not installed** — no strace, no bomtrace |
-| **SYS_PTRACE** | **Not required** |
 | **Analysis method** | Bytecode SourceFile attr + `mvn dependency:tree` |
+| **bomsh scripts** | `bomsh_create_bom_java.py` (bytecode reader only) |
+| **Build instrumentation** | **None** — no strace, no bomtrace |
+| **SYS_PTRACE** | **Not required** |
+| **Output** | SPDX 2.3 JSON (build + analyzed) + HTML visualizations |
 
-### Other Software Installed (Standalone Only)
+### Key Differences Between Containers
 
-The standalone container includes toolchains for all supported
-languages — **none of which exist in the CI build container**:
-
-| Software | Standalone | CI Build |
-|----------|-----------|---------|
-| **C/C++ compilers** (gcc, g++, clang) | Installed | Not installed |
-| **Build systems** (make, cmake, ninja, autotools) | Installed | Not installed |
-| **Go SDK** (1.26.0) | Installed | Not installed |
-| **Rust toolchain** (stable via rustup) | Installed | Not installed |
-| **Syft** (manifest-based SBOM) | Installed | Not installed |
-| **strace** (v6.11 patched) | Installed | Not installed |
-| **C library dev headers** (libssl-dev, zlib1g-dev, etc.) | Installed | Not installed |
-| **Media codec libs** (libx264, libx265, libvpx, etc.) | Installed | Not installed |
-| **Binary analysis tools** (binutils, elfutils, xxd) | Installed | Not installed |
-| **Python 3 + pip** | Installed | Not installed |
-| **git, wget, curl** | Installed | `curl` only (via dnf) |
+| Aspect | CI Build | Sidecar Analysis |
+|--------|---------|-----------------|
+| **OS** | Amazon Linux 2023 (rpm) | Ubuntu 22.04 (deb) |
+| **JDK vendor** | Amazon Corretto | OpenJDK |
+| **Package manager** | `dnf` | `apt` |
+| **Python** | Not installed | Installed (runs pipeline) |
+| **bomsh** | Not installed | bytecode reader only |
+| **Build runs here?** | **Yes** | No (reads artifacts) |
+| **SPDX generated here?** | No | **Yes** |
+| **Privileged capabilities** | None | None |
 
 ## Dependencies
 
