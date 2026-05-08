@@ -22,7 +22,7 @@
         <mxCell id="gen-title" parent="1" style="text;html=1;fontSize=14;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;rounded=1;" value="SPDX Generator (java_generator.py)" vertex="1">
           <mxGeometry height="30" width="320" x="440" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="gen" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" value="JavaSpdxGenerator&#xa;&#xa;1. Create document metadata&#xa;   • SPDXVersion: SPDX-2.3&#xa;   • namespace: https://omnibor.io/...&#xa;   • creators: [Tool: omnibor-analysis]&#xa;&#xa;2. Create root package&#xa;   • name: omnibor-java-testapp&#xa;   • version: 1.0.0&#xa;   • downloadLocation: git+https://...&#xa;   • primaryPackagePurpose: APPLICATION&#xa;   • PURL: pkg:maven/com.example/testapp@1.0.0&#xa;&#xa;3. Add dependency packages (from dep:tree)&#xa;   • jsoup → DEPENDS_ON root&#xa;   • log4j-core → DEPENDS_ON root&#xa;   • log4j-api → DEPENDS_ON log4j-core&#xa;   • bcprov → DEPENDS_ON root&#xa;   Each with: version, PURL, supplier, scope&#xa;&#xa;4. Add build tools (BUILD_TOOL_OF root)&#xa;   • javac 21.x (primaryPackagePurpose: APPLICATION)&#xa;   • maven 3.9.x (primaryPackagePurpose: APPLICATION)&#xa;&#xa;5. Emit DESCRIBES relationship&#xa;   • SPDXRef-DOCUMENT DESCRIBES root" vertex="1">
+        <mxCell id="gen" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" value="JavaSpdxGenerator&#xa;&#xa;1. Create document metadata&#xa;   • SPDXVersion: SPDX-2.3&#xa;   • namespace: https://omnibor.io/...&#xa;   • creators: [Tool: omnibor-analysis]&#xa;&#xa;2. Create root package&#xa;   • name: omnibor-java-testapp&#xa;   • version: 1.0.0&#xa;   • downloadLocation: git+https://...&#xa;   • primaryPackagePurpose: APPLICATION&#xa;   • PURL: pkg:maven/com.example/testapp@1.0.0&#xa;&#xa;3. Add dependency packages (from dep:tree)&#xa;   • jsoup → DEPENDS_ON root&#xa;   • log4j-core → DEPENDS_ON root&#xa;   • log4j-api → DEPENDS_ON log4j-core&#xa;   • bcprov → DEPENDS_ON root&#xa;   Each with: version, PURL, supplier, scope&#xa;&#xa;4. Add build tools (BUILD_TOOL_OF root)&#xa;   • javac 21.x&#xa;   • maven 3.9.x&#xa;&#xa;5. Emit DESCRIBES relationship&#xa;&#xa;6. Generate HTML visualizations&#xa;   • D3.js force-graph per SBOM&#xa;   • Interactive: zoom, drag, search" vertex="1">
           <mxGeometry height="460" width="320" x="440" y="130" as="geometry" />
         </mxCell>
         <mxCell id="eds1" edge="1" parent="1" source="ds1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;fontStyle=2;fontSize=9;" target="gen" value="treedb">
@@ -34,7 +34,7 @@
         <mxCell id="eds3" edge="1" parent="1" source="ds3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;fontStyle=2;fontSize=9;" target="gen" value="tool versions">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="out-title" parent="1" style="text;html=1;fontSize=14;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;" value="Output SBOMs" vertex="1">
+        <mxCell id="out-title" parent="1" style="text;html=1;fontSize=14;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;" value="Output SBOMs + Visualizations" vertex="1">
           <mxGeometry height="30" width="180" x="860" y="80" as="geometry" />
         </mxCell>
         <mxCell id="build-sbom" parent="1" style="shape=document;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" value="testapp_build.spdx.json&#xa;(CISA Build SBOM)&#xa;&#xa;Contains:&#xa;• Root package (APPLICATION)&#xa;• All compile-scope deps (LIBRARY)&#xa;• Build tools: javac, maven&#xa;&#xa;Relationships:&#xa;• DESCRIBES (doc → root)&#xa;• DEPENDS_ON (root → dep)&#xa;• DEPENDS_ON (dep → transitive)&#xa;• BUILD_TOOL_OF (tool → root)&#xa;&#xa;Use case: build provenance,&#xa;supply chain audit" vertex="1">
@@ -53,6 +53,18 @@
           <mxGeometry height="200" width="280" x="1220" y="130" as="geometry" />
         </mxCell>
         <mxCell id="egold" edge="1" parent="1" source="build-sbom" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;fontStyle=2;fontSize=9;dashed=1;" target="golden" value="compare">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="build-html" parent="1" style="shape=document;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" value="testapp_build.spdx.html&#xa;(Interactive Visualization)&#xa;&#xa;• D3.js force-directed graph&#xa;• Nodes = SPDX packages&#xa;• Edges = relationships&#xa;• Color-coded by type&#xa;  (dep, build tool, root)&#xa;• Zoom, drag, search" vertex="1">
+          <mxGeometry height="180" width="260" x="860" y="730" as="geometry" />
+        </mxCell>
+        <mxCell id="analyzed-html" parent="1" style="shape=document;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" value="testapp_analyzed.spdx.html&#xa;(Interactive Visualization)&#xa;&#xa;• Same D3.js force-graph&#xa;• No build tool nodes&#xa;• Focus: dependency topology" vertex="1">
+          <mxGeometry height="130" width="260" x="860" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="ehtml1" edge="1" parent="1" source="gen" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;" target="build-html" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ehtml2" edge="1" parent="1" source="gen" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;" target="analyzed-html" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="example" parent="1" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontSize=9;align=left;spacingLeft=10;fontFamily=Courier New;size=20;" value="Example SPDX Relationship (build SBOM):&#xa;&#xa;{&#xa;  &quot;spdxElementId&quot;: &quot;SPDXRef-Package-root&quot;,&#xa;  &quot;relationshipType&quot;: &quot;DEPENDS_ON&quot;,&#xa;  &quot;relatedSpdxElement&quot;: &quot;SPDXRef-Package-jsoup&quot;&#xa;}&#xa;{&#xa;  &quot;spdxElementId&quot;: &quot;SPDXRef-BuildTool-javac&quot;,&#xa;  &quot;relationshipType&quot;: &quot;BUILD_TOOL_OF&quot;,&#xa;  &quot;relatedSpdxElement&quot;: &quot;SPDXRef-Package-root&quot;&#xa;}" vertex="1">
