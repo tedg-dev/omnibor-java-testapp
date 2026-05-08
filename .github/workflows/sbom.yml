@@ -46,7 +46,12 @@ jobs:
             -v "${{ github.workspace }}:/project" \
             -w /project \
             amazoncorretto:21-al2023 \
-            bash -c "dnf install -y maven && mvn package -q"
+            bash -c '
+              dnf install -y tar gzip &&
+              curl -sL https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz | tar xz -C /opt &&
+              export PATH=/opt/apache-maven-3.9.9/bin:$PATH &&
+              mvn package -q
+            '
 
       # ── Step 2: Pull OmniBOR sidecar image ──
       - name: Login to GHCR
