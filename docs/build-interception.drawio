@@ -61,7 +61,7 @@
         <mxCell id="esc34" edge="1" parent="sc-group" source="sc3" style="rounded=1;" target="sc4">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="equiv" parent="1" style="shape=doubleArrow;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;arrowWidth=0.4;arrowSize=0.3;" value="Structurally&#xa;Equivalent&#xa;SPDX Output" vertex="1">
+        <mxCell id="equiv" parent="1" style="shape=doubleArrow;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;arrowWidth=0.4;arrowSize=0.3;" value="Same SPDX Schema&#xa;Different Fidelity" vertex="1">
           <mxGeometry height="50" width="280" x="450" y="800" as="geometry" />
         </mxCell>
         <mxCell id="diff" parent="1" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;size=20;fontStyle=0;" value="KEY DIFFERENCE&#xa;&#xa;Standalone: kernel-level syscall interception&#xa;(strace sees every file open/close)&#xa;Higher fidelity — observes what actually happened&#xa;&#xa;Sidecar: post-build artifact analysis&#xa;(bytecode SourceFile attr + Maven dep graph)&#xa;Lower fidelity — infers what probably happened&#xa;&#xa;Both produce the same OmniBOR treedb schema&#xa;and feed into the same SPDX generator,&#xa;but standalone captures more (annotation&#xa;processors, resource files, implicit deps)." vertex="1">

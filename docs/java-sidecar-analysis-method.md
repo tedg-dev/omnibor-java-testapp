@@ -1,20 +1,18 @@
-# Java Sidecar: Analysis Method and Honest Assessment
+# Java Sidecar: Analysis Method
 
-## The Java Sidecar Is NOT Doing Build Interception
+This document provides an honest, detailed assessment of how
+omnibor-analysis generates SPDX SBOMs for Java in sidecar mode — what
+it does, what it doesn't do, how it compares to standalone mode, and
+why the current approach is the best option for a true sidecar
+deployment.
 
-omnibor-analysis is a build-interception-driven, build-time SPDX SBOM
-generation tool. For C/C++, Go, and Rust, both standalone and sidecar
-modes perform genuine build interception — they instrument the actual
-compiler invocations to observe source → binary transformations as they
-happen.
+## What the Java Sidecar Actually Does
 
-**Java sidecar mode does not do this.** It performs post-build static
-analysis of build artifacts — the same artifacts available to any SCA
-tool.
+The Java sidecar performs **post-build provenance analysis** — not
+build interception. It analyzes build artifacts after the build
+completes, with zero modifications to the build process.
 
-## What Each Mode Actually Does
-
-### Standalone Mode (strace) — True Build Interception
+### Standalone Mode — Kernel-Level Build Interception
 
 ```
 bomtrace3 mvn package
@@ -23,137 +21,259 @@ bomtrace3 mvn package
 ```
 
 - Kernel-level syscall interception via ptrace
-- Observes `javac` open `App.java` (read) → write `App.class` (write)
-- Observes `jar` open `App.class` (read) → write `app.jar` (write)
-- Produces cryptographic provenance chain: source → compiler → artifact
-- **This IS build interception** — the build process is directly observed
+- Observes `javac` reading `App.java` → writing `App.class`
+- Observes `jar` reading `App.class` → writing `app.jar`
+- Captures annotation processor I/O, resource copies, everything
+- **This IS build interception** — the build process is directly
+  observed at the OS level
 
-### Sidecar Mode (Java) — Post-Build Analysis
+### Sidecar Mode — Post-Build Provenance Analysis
 
 ```
-mvn package                           # build runs unmodified, no instrumentation
+mvn package                           # build runs unmodified
 bomsh_create_bom_java.py              # reads .class bytecode SourceFile attribute
-mvn dependency:tree -DoutputType=dot  # queries Maven's dependency resolver
+mvn dependency:tree -DoutputType=dot  # queries the build tool's dependency resolver
 ```
 
 - No strace, no ptrace, no kernel interception, no compiler wrapping
 - `bomsh_create_bom_java.py` runs **after** the build completes
-- Reads the `SourceFile` bytecode attribute from compiled `.class` files
-  (JVM Spec §4.7.10, inserted by `javac` per JLS §13.1)
+- Reads the `SourceFile` bytecode attribute from compiled `.class`
+  files (JVM Spec §4.7.10, inserted by `javac` per JLS §13.1)
 - Uses path similarity heuristics to map `.class` → `.java` source
-- Runs `mvn dependency:tree` to capture the declared dependency graph
-- **This is NOT build interception — it is post-build static analysis**
+- Queries the build tool's dependency resolver for the declared
+  dependency graph
+- **This is NOT build interception — it is post-build analysis**
 
 ## Three Levels of Build Observation
 
-Not all "interception" is equal. There are three distinct levels:
-
 | Level | Mechanism | What It Sees | Completeness |
-|-------|-----------|-------------|---------------|
-| **Kernel-level** (ptrace/strace) | Intercepts syscalls via OS kernel | Every `openat()`, `read()`, `write()` — ALL file I/O by ALL processes | Complete — nothing is missed |
-| **Build-system-level** (compiler wrappers) | Hooks provided by the build system or language toolchain | Compiler invocations, their arguments, input/output files | Partial — only sees what the build system exposes through its hooks |
-| **Post-build** (artifact analysis) | Scans artifacts after the build | Metadata embedded in compiled files | Inferred — reconstructs what probably happened |
+|-------|-----------|-------------|--------------|
+| **Kernel-level** | ptrace/strace | Every `openat()`, `read()`, `write()` by all processes | Complete |
+| **Build-system-level** | Compiler wrappers (`CC=`, `-toolexec`, `RUSTC_WRAPPER`) | Compiler invocations routed through the hook | Partial |
+| **Post-build** | Artifact analysis | Metadata embedded in compiled files | Inferred |
 
 Standalone mode operates at the kernel level. Sidecar mode for C/C++,
-Go, and Rust operates at the build-system level. Sidecar mode for Java
-operates at the post-build level.
+Go, and Rust targets the build-system level (with caveats — see
+below). Sidecar mode for Java operates at the post-build level.
 
-## Comparison Across Languages
-
-| Language | Standalone | Sidecar | Sidecar Level |
-|----------|-----------|---------|---------------|
-| **C/C++** | `bomtrace3` (ptrace/strace) | `CC=`/`CXX=`/`AR=`/`LD=` wrapper scripts | Build-system — wraps compiler invocations |
-| **Go** | `bomtrace2` (ptrace/strace) | `go build -toolexec=wrapper` | Build-system — Go calls wrapper for each tool |
-| **Rust** | `bomtrace2` (ptrace/strace) | `RUSTC_WRAPPER=wrapper` | Build-system — Cargo calls wrapper for each `rustc` |
-| **Java** | `bomtrace3` (ptrace/strace) | bytecode `SourceFile` attr + `mvn dependency:tree` | Post-build — artifact analysis only |
-
-### C/C++, Go, Rust sidecar: build-system-level instrumentation
-
-For C/C++, Go, and Rust, sidecar mode uses **compiler wrapper
-mechanisms** — hooks that each language's build system provides (`CC=`
-for C/C++, `-toolexec` for Go, `RUSTC_WRAPPER` for Rust). These are
-the same mechanisms used by ccache, distcc, and Coverity.
-
-These wrappers run **during** the build and see compiler invocations as
-they happen — this is genuinely build-time instrumentation. However,
-they are **less complete than kernel-level interception**:
-
-- They only see what the build system routes through the hook — not
-  internal compiler file I/O (e.g., implicit header resolution)
-- For C/C++ header tracking, wrappers rely on GCC/Clang's `-MD`
-  dependency output — an approximation, not a syscall log
-- They depend on the build system **actually using** the hook
-
-### Build environments that break compiler wrappers
+### Build-system-level limitations
 
 The `CC=` / `-toolexec` / `RUSTC_WRAPPER` approach assumes the build
-system respects these hooks. Many do not:
+system respects these hooks. Many enterprise build environments do not:
 
-- **Hermetic build systems** (Bazel, Nix, Yocto) explicitly ignore
-  `CC=` environment variables and use their own toolchain resolution
-- **Hardcoded compiler paths** in Makefiles (e.g., `gcc` instead of
-  `$(CC)`) bypass `CC=` entirely
-- **CMake cached builds** may ignore `CC=` if the CMake cache is
-  already populated from a previous configure step
-- **Docker multi-stage builds** may not propagate environment variables
-  across stages
-- **Security-hardened CI environments** may restrict environment
-  variable injection or PATH manipulation
-- **Cross-compilation toolchains** often set their own CC/CXX and
-  override any wrapper
+- **Hermetic build systems** (Bazel, Nix, Yocto) ignore `CC=` env
+  vars and use their own toolchain resolution
+- **Hardcoded compiler paths** in Makefiles (`gcc` instead of `$(CC)`)
+  bypass `CC=` entirely
+- **CMake cached builds** ignore `CC=` when the cache is already
+  populated
+- **Cross-compilation toolchains** set their own CC/CXX, overriding
+  wrappers
+- **Security-hardened CI** may restrict env var injection or PATH
+  manipulation
 
-In these environments, the sidecar wrapper approach fails silently —
+In these environments, wrapper-based interception fails silently —
 the build succeeds but no interception data is captured.
 
-### Java sidecar: post-build analysis
+### Java has no compiler-wrapping mechanism
 
-Java has no equivalent compiler-wrapping mechanism. The JVM ecosystem
-does not provide a `JAVAC_WRAPPER` hook or standard. The sidecar falls
-back to analyzing build artifacts after the fact.
+The JVM ecosystem does not provide a `JAVAC_WRAPPER` hook or any
+equivalent of `CC=`. There is no standard, build-tool-agnostic way
+to wrap `javac` invocations across Maven, Gradle, Ant, and Bazel.
+This is why the Java sidecar uses post-build analysis instead.
 
-## How Is This Different From Black Duck?
+## How the Industry Does Java SBOMs
 
-Black Duck (BDBA) and omnibor-analysis Java sidecar both analyze
-post-build artifacts — JAR/WAR files containing `.class` files. They
-ask different questions of the same artifacts:
+Before evaluating alternatives, it's important to understand what the
+industry actually uses for Java SBOM generation in enterprise CI/CD.
+Every major tool falls into one of two categories:
 
-| Aspect | Black Duck (BDBA) | omnibor-analysis Java Sidecar |
-|--------|------------------|-------------------------------|
-| **What it scans** | JAR/WAR files | JAR/WAR files (same artifacts) |
-| **Method** | SHA hashes + `pom.properties` + string patterns matched against proprietary KnowledgeBase | `SourceFile` bytecode attribute + `mvn dependency:tree` |
-| **Question answered** | "What known components are in this binary?" | "Which source files produced which class files?" |
-| **Source → binary provenance** | No | Yes — SHA-256 chain via OmniBOR treedb |
-| **Dependency scope awareness** | No — flat list of detected components | Yes — compile vs test vs runtime vs provided |
-| **Direct vs transitive** | No — cannot distinguish | Yes — full dependency hierarchy from Maven resolver |
-| **Unknown components** | Only finds what's in its database | Finds everything the build system resolved |
-| **Output format** | Proprietary | SPDX 2.3 (open standard) |
+### Category 1: Build plugins (require build modification)
 
-### What omnibor-analysis does better
+| Tool | Method | Requires |
+|------|--------|----------|
+| **CycloneDX Maven Plugin** | Maven plugin generating CycloneDX SBOM from dependency resolution | `pom.xml` change |
+| **CycloneDX Gradle Plugin** | Gradle plugin, same approach | `build.gradle` change |
+| **SPDX Maven Plugin** | Maven plugin generating SPDX from dependency resolution | `pom.xml` change |
 
-1. **Source-to-binary provenance** via compiler-inserted `SourceFile`
-   attribute — creates an OmniBOR treedb with SHA-256 hashes mapping
-   `.java` → `.class` → `.jar`
-2. **Build-system dependency resolution** — uses Maven's own resolver
-   (`mvn dependency:tree`), not binary signature guessing
-3. **Scope and hierarchy** — knows direct vs transitive, compile vs
-   test vs runtime vs provided
-4. **Open standard output** — SPDX 2.3, not proprietary format
+These produce accurate dependency graphs because they use the build
+tool's own resolver. But they require modifying the project's build
+configuration — something enterprises resist and that violates the
+sidecar model.
 
-### What both have in common
+### Category 2: Post-build artifact scanners (no build modification)
 
-Both are analyzing the **same post-build artifacts** (JAR files
-containing `.class` files). Neither is intercepting the Java build
-process itself. The `SourceFile` attribute is marginally more
-interesting than signature matching because it's compiler-inserted
-provenance metadata rather than packaging metadata — but it's still
-being read *after* the build, from the same `.class` files that any SCA
-tool can access.
+| Tool | Method | Artifact Access |
+|------|--------|----------------|
+| **Syft** (Anchore) | JAR manifest, `pom.properties`, `pom.xml` inside JARs | Same as sidecar |
+| **Trivy** (Aqua) | Dependency file scanning (`pom.xml`, `build.gradle`) | Same as sidecar |
+| **Black Duck** (Synopsys) | Binary signature matching against proprietary KB | Same as sidecar |
+| **Snyk** | Dependency file analysis | Same as sidecar |
+| **OWASP Dependency-Check** | Known-vulnerability matching from dependency metadata | Same as sidecar |
 
-## The SourceFile Attribute — What It Is and Isn't
+These require zero build changes and analyze the same post-build
+artifacts that the omnibor-analysis sidecar analyzes.
+
+### Where omnibor-analysis sidecar fits
+
+The omnibor-analysis Java sidecar is a **Category 2 tool** — a
+post-build artifact scanner. It accesses the same artifacts as Syft,
+Trivy, and Black Duck. What differentiates it:
+
+| Aspect | Typical SCA (Black Duck, Syft) | omnibor-analysis sidecar |
+|--------|-------------------------------|--------------------------|
+| **Source → binary mapping** | No | Yes — `SourceFile` bytecode attribute (compiler-inserted) |
+| **Dependency resolution** | Inferred from signatures or manifest files | Exact — from the build tool's own resolver |
+| **Scope awareness** | No — flat component list | Yes — compile, test, runtime, provided |
+| **Direct vs transitive** | No — cannot distinguish | Yes — full hierarchy |
+| **Unknown components** | Only finds what's in its database | Finds everything the build tool resolved |
+| **Output** | Proprietary or CycloneDX | SPDX 2.3 (open standard) |
+
+The advantages are real. The `SourceFile` attribute is
+**compiler-inserted provenance metadata** — it comes from `javac`
+itself, not from a signature database. And build-tool dependency
+resolution gives the exact resolved graph including version conflict
+resolution, not guessed matches.
+
+## Why the Current Approach Is the Best Sidecar Option
+
+The fundamental constraint of sidecar mode is: **zero modifications
+to the build**. No `pom.xml` changes, no `MAVEN_OPTS`, no
+`extensions.xml`, no `build.gradle` changes. The sidecar runs after
+the build on the same artifacts.
+
+Five alternative approaches were evaluated. **Every one violates the
+sidecar constraint**:
+
+### Alternative 1: Java Agent (`-javaagent:`)
+
+Instruments JVM file I/O via `java.lang.instrument` (the API used
+by JaCoCo, OpenTelemetry, and ByteBuddy).
+
+- **Requires**: Setting `MAVEN_OPTS=-javaagent:omnibor-agent.jar`
+  (build modification)
+- **Maven fork problem**: `maven-compiler-plugin` defaults to
+  `fork=false`, meaning `javac` runs in-process inside the Maven
+  JVM. An agent in `MAVEN_OPTS` would see compiler I/O — but also
+  ALL of Maven's own I/O (every `pom.xml` read, every plugin, every
+  `settings.xml` access). When `fork=true`, the agent does NOT
+  instrument the forked `javac` process at all — you'd need to
+  inject `-J-javaagent:...` via `<compilerArgs>` in `pom.xml`.
+- **JEP 451** (Java 21+): Warns about restricting dynamic agent
+  loading. Future JDK versions may further limit agent use.
+- **Agent compatibility**: Must coexist with whatever agents teams
+  already use (JaCoCo, OpenTelemetry, APM agents).
+- **Verdict**: Higher fidelity than SourceFile, but NOT a sidecar
+  solution — requires build environment changes.
+
+### Alternative 2: Maven Compiler Plugin Wrapper
+
+Custom Maven plugin wrapping `maven-compiler-plugin` to record
+source/class mappings.
+
+- **Requires**: `pom.xml` change or `.mvn/extensions.xml`
+  (build modification)
+- **Maven-only**: Does not work for Gradle, Ant, or Bazel builds
+- **Version-specific**: Plugin API differs between Maven 3.x and 4.x
+- **Verdict**: NOT a sidecar solution. Maven-only. High maintenance.
+
+### Alternative 3: Maven EventSpy / Build Extension
+
+Maven's `EventSpy` SPI observes build lifecycle events. Used by
+Develocity (Gradle Enterprise) and `maven-buildtime-extension`.
+
+- **Requires**: `.mvn/extensions.xml` or
+  `-Dmaven.ext.class.path` (build modification)
+- **Maven 3.3+ only**: `EventSpy` introduced in Maven 3.0.2,
+  `.mvn/extensions.xml` requires 3.3.1+. Does not exist for
+  Maven 2.x, Gradle, Ant, or Bazel.
+- **Lifecycle-level only**: Sees which phases executed, not
+  individual file I/O
+- **Verdict**: NOT a sidecar solution. Maven 3.3+ only. Low fidelity.
+
+### Alternative 4: `javac -verbose`
+
+Compiler flag printing compilation details to stderr.
+
+- **Requires**: Compiler args change in `pom.xml` or CLI
+  (build modification)
+- **Output not standardized**: Format differs across JDK vendors
+  (Corretto, Temurin, Oracle, Zulu produce different verbose output)
+- **Fragile parsing**: Human-readable text, not structured data
+- **No write tracking**: Sees reads, not class file writes
+- **Verdict**: NOT a sidecar solution. Fragile. Vendor-dependent.
+
+### Alternative 5: GraalVM Native Image
+
+Compiles to native binary, traced through C/C++ pipeline with strace.
+
+- **Requires**: GraalVM (not used by vast majority of Java builds)
+- **Still needs SYS_PTRACE** for strace
+- **Verdict**: Inapplicable to standard Java builds.
+
+### Conclusion
+
+**None of the alternatives work as true sidecar solutions.** Every one
+requires modifying the build environment, is limited to specific build
+tools, or has fundamental technical blockers.
+
+The current SourceFile + dependency tree approach is the best option
+because it:
+
+1. **Requires zero build changes** — true sidecar
+2. **Works across all Java build tools** — `javac` always inserts the
+   `SourceFile` attribute regardless of whether Maven, Gradle, Ant,
+   or Bazel invoked it
+3. **Uses the build tool's own resolver** — not signature guessing
+4. **Exceeds industry Category 2 tools** — compiler-inserted provenance
+   + exact dependency resolution vs signature matching + manifest
+   parsing
+
+## Honest Fidelity Comparison: Standalone vs Sidecar
+
+Standalone captures strictly more information with higher fidelity:
+
+| What is captured | Standalone (strace) | Sidecar (post-build) |
+|-----------------|--------------------|-----------------------|
+| **Source files read by `javac`** | Exact — `openat()` syscall | Inferred — SourceFile attr + path heuristic |
+| **Class files written by `javac`** | Exact — `openat()` with `O_WRONLY` | Inferred — scans `target/` after build |
+| **Files bundled by `jar`** | Exact — every file read logged | Not captured |
+| **Annotation-processor I/O** | Captured — strace sees generated files | Missed — generated sources may not exist post-build |
+| **Resource files** | Captured — every copy logged | Not captured — SourceFile only in `.class` files |
+| **Dependency resolution** | Observed — strace sees JARs opened from `~/.m2` | Declared — what the build tool says it resolved |
+
+Standalone observes **what actually happened**. Sidecar infers **what
+probably happened**. When the build does something unexpected
+(annotation processors, shaded JARs, resource filtering, non-standard
+layouts), standalone catches it and sidecar doesn't.
+
+### Why standalone can't replace sidecar in enterprise CI/CD
+
+Despite higher fidelity, standalone mode has hard blockers for
+enterprise deployment:
+
+1. **`SYS_PTRACE` required**: Enterprise CI/CD universally runs
+   containers without elevated capabilities. GitHub Actions, GitLab
+   CI SaaS, and Jenkins on Kubernetes all run unprivileged containers.
+   Requesting `SYS_PTRACE` is a security exception most platform teams
+   reject.
+
+2. **x86_64 only**: `bomtrace3` has no ARM64 port.
+   `bomsh_hook.c` includes `<sys/reg.h>`, an x86-only header. As
+   CI/CD moves toward ARM (AWS Graviton, GitHub ARM runners), this
+   becomes increasingly limiting.
+
+3. **Environment matching**: The SBOM must reflect the user's actual
+   build. This requires matching the exact OS, JDK vendor/version,
+   build tool version, system libraries, and compiler version — a
+   custom Docker image per customer per project, with ongoing
+   maintenance.
+
+## The SourceFile Attribute
 
 The `SourceFile` attribute (JVM Spec §4.7.10) is a class-level
 attribute inserted by `javac` during compilation. It contains the
-**simple filename** (e.g., `"App.java"`) — not the full path.
+**simple filename** only (e.g., `"App.java"`) — not the full path.
 
 ```
 ClassFile {
@@ -164,177 +284,53 @@ ClassFile {
 }
 ```
 
-omnibor-analysis uses **path similarity heuristics** to resolve the
-simple name to the actual source file path in the project tree.
+omnibor-analysis uses path similarity heuristics to resolve the simple
+name to the actual source file in the project tree.
 
-**Where this works well:**
+**Works well for:**
 - Standard Maven/Gradle project layouts (`src/main/java/...`)
 - One-to-one mapping between source files and class names
 
-**Where this can be wrong:**
-- Annotation processors that generate `.java` files at compile time
-- Multi-module builds with non-standard source layouts
-- Shaded/relocated classes where the `SourceFile` attribute doesn't
-  match the filesystem path
-- Obfuscated builds that strip the `SourceFile` attribute entirely
+**Can be wrong when:**
+- Annotation processors generate `.java` files at compile time
+- Multi-module builds have non-standard source layouts
+- Shaded/relocated classes have mismatched `SourceFile` attributes
+- Obfuscated builds strip the `SourceFile` attribute entirely
 
-## Could Standalone Mode Run on the User's CI/CD Instead?
+The SourceFile approach works across **every Java build tool** because
+`javac` always inserts this attribute (unless explicitly disabled
+with `-g:none`). This universality is a key advantage — it doesn't
+matter whether Maven, Gradle, Ant, or Bazel invoked the compiler.
 
-If the goal is true build interception for Java, standalone mode
-(strace/ptrace) provides it. The question is whether standalone can be
-adapted to run in enterprise CI/CD environments.
+## Build Tool Dependency Resolution
 
-### Environment matching is harder than it looks
+The sidecar captures the dependency graph from the build tool's own
+resolver — not from binary signatures or manifest guessing:
 
-The SPDX SBOM must reflect what the user's **actual production build**
-produces. This requires matching not just the OS family but the exact
-versions of everything in the toolchain:
+| Build Tool | Command | What It Provides |
+|-----------|---------|-----------------|
+| **Maven** | `mvn dependency:tree -DoutputType=dot` | Full resolved graph with scope, version conflict resolution |
+| **Gradle** | `gradle dependencies` | Resolved configurations with variant-aware selection |
+| **Ant + Ivy** | Parse `ivy.xml` | Declared dependencies with conflict resolution |
+| **Bazel** | `bazel query` / `bazel cquery` | Resolved dependency graph |
 
-| Requirement | Reality |
-|------------|---------|
-| **OS distribution + version** | omnibor-analysis has RHEL 9 and Alpine 3.19, but enterprises run RHEL 8.7, RHEL 9.2, AL2023, Ubuntu 20.04/22.04/24.04, SLES 15, etc. Each minor version ships different system library versions that affect linked binaries. |
-| **JDK vendor + version** | Amazon Corretto 21.0.3, Eclipse Temurin 21.0.4, Azul Zulu 21.0.3, Oracle GraalVM 21 — each vendor patches differently. Corretto on AL2023 resolves different system libraries than Temurin on Ubuntu. |
-| **Build tool versions** | Maven 3.8.x resolves dependency conflicts differently than 3.9.x. Gradle 7.x vs 8.x can produce different dependency graphs. These are not interchangeable. |
-| **System libraries (glibc, OpenSSL)** | C/C++ binaries link against specific glibc and OpenSSL versions. An SBOM from a RHEL 8.7 build is not valid for a RHEL 9.2 build — the linked libraries differ. |
-| **Compiler versions** | GCC 11 vs GCC 13, Clang 15 vs 17 — different default flags, different warnings, different codegen. The SBOM should reflect the actual compiler used. |
+This gives the **exact build-time resolution** including:
+- Version conflict resolution (Maven nearest-wins, Gradle variant-aware)
+- Scope classification (compile, test, runtime, provided)
+- Direct vs transitive dependency distinction
+- Exclusion processing
 
-Matching the user's exact environment requires building a custom
-Docker image per customer, per project. This is feasible but is an
-ongoing maintenance burden — not a one-time setup.
+## Summary
 
-### Hard blockers
+The Java sidecar performs post-build provenance analysis — the best
+available approach for a true sidecar (zero build modifications) that
+works across all Java build tools and enterprise environments.
 
-1. **`SYS_PTRACE`**: Enterprise CI/CD environments almost universally
-   run containers without elevated capabilities. Requesting `SYS_PTRACE`
-   is a security exception that most platform teams will reject.
-   GitHub Actions, GitLab CI SaaS, and Jenkins on Kubernetes all run
-   unprivileged containers by default.
-
-2. **x86_64 only**: bomtrace3 has no ARM64 port. `bomsh_hook.c`
-   includes `<sys/reg.h>`, an x86-only header. As CI/CD moves toward
-   ARM runners (AWS Graviton, GitHub ARM runners), this becomes
-   increasingly limiting.
-
-## Is Standalone Mode More Valid Than Sidecar for Java?
-
-**Yes.** Standalone mode with strace/ptrace captures strictly more
-information and with higher fidelity than the sidecar approach:
-
-| What is captured | Standalone (strace) | Sidecar (SourceFile + dep:tree) |
-|-----------------|--------------------|---------------------------------|
-| **Which `.java` files `javac` opened** | Exact — observed via `openat()` syscall | Inferred — SourceFile attribute + path heuristic |
-| **Which `.class` files `javac` wrote** | Exact — observed via `openat()` with `O_WRONLY` | Inferred — scans `target/` directory after build |
-| **Which files `jar` bundled** | Exact — every file read by `jar` is logged | Not captured — relies on JAR manifest |
-| **Annotation-processor-generated code** | Captured — strace sees generated `.java` files being opened | Missed — SourceFile attribute points to generated file that may not exist post-build |
-| **Multi-module internal dependencies** | Captured — strace sees cross-module file reads | Partially captured — depends on `mvn dependency:tree` reporting reactor dependencies |
-| **Resource files (XML, properties)** | Captured — strace sees every file copy into target | Not captured — SourceFile attribute only exists in `.class` files |
-| **Dependency resolution** | Captured — strace sees every JAR opened from `~/.m2/repository` | Declared — `mvn dependency:tree` reports what Maven *says* it resolved |
-
-The key difference: standalone observes **what actually happened** at
-the kernel level. Sidecar infers **what probably happened** from
-artifacts and build-system metadata. When the build does something
-unexpected (annotation processors, shaded JARs, resource filtering,
-non-standard layouts), standalone catches it and sidecar doesn't.
-
-## Possible Paths Forward for Java
-
-The current SourceFile approach was implemented first because it was
-the simplest path to a working Java sidecar. The following alternatives
-provide increasing levels of build-time fidelity:
-
-### Option 1: Java Agent (`-javaagent:`)
-
-A Java agent instruments the JVM itself. By hooking into
-`java.io.FileInputStream` / `FileOutputStream` and
-`java.nio.file.Files`, an agent can capture every file I/O operation
-performed by `javac` and `jar` — similar to what strace captures at
-the kernel level, but from within the JVM.
-
-- **How it works**: Add `-javaagent:omnibor-agent.jar` to
-  `MAVEN_OPTS` or the `javac` command. The agent uses
-  `java.lang.instrument` to intercept file operations.
-- **What it captures**: Source files read, class files written,
-  resource files copied — the same provenance chain as strace.
-- **Advantages**: No `SYS_PTRACE`, works on any OS/arch, works inside
-  any CI/CD, minimal build overhead.
-- **Disadvantages**: Requires modifying `MAVEN_OPTS` (a single env var
-  change — less invasive than `CC=` wrappers). Only captures JVM-level
-  I/O, not native processes (unlikely to matter for Java builds).
-- **Effort**: Medium — the `java.lang.instrument` API is well-documented
-  and widely used (JaCoCo, ByteBuddy, and OpenTelemetry all use it).
-
-### Option 2: Maven Compiler Plugin Wrapper
-
-A custom Maven plugin that wraps the `maven-compiler-plugin` and
-records which source files are compiled and which class files are
-produced.
-
-- **How it works**: Configure as a Maven plugin in `pom.xml` or via
-  `.mvn/extensions.xml`. Intercepts the `compile` phase.
-- **What it captures**: Source → class file mappings per compilation
-  unit, compiler arguments, classpath.
-- **Advantages**: Runs within Maven's lifecycle, no external
-  dependencies.
-- **Disadvantages**: Requires adding a plugin to each project's
-  `pom.xml` (more invasive than an agent). Does not capture `jar`
-  packaging step or resource file copies.
-- **Effort**: Medium.
-
-### Option 3: `javac` Verbose Output
-
-The `javac` compiler supports verbose flags that print compilation
-details to stderr.
-
-- **How it works**: Add `-verbose` or `-J-verbose:class` to the
-  compiler arguments via `maven-compiler-plugin` configuration.
-- **What it captures**: Which source files are being compiled and
-  which class files are loaded. Less precise than strace — does not
-  capture writes, only compilation events.
-- **Advantages**: Zero code to write — just a compiler flag.
-- **Disadvantages**: Output is human-readable, not structured. Parsing
-  is fragile. Does not capture file write operations. Does not capture
-  `jar` bundling.
-- **Effort**: Low.
-
-### Option 4: Accept the SourceFile Approach
-
-Keep the current post-build analysis as-is. This is already
-implemented and deployed.
-
-- **Advantages**: Works everywhere, no build modifications required.
-- **Disadvantages**: Weakest provenance fidelity. Cannot distinguish
-  from what any other SCA tool could do with the same artifacts.
-
-### Option 5: GraalVM Native Image
-
-For teams using GraalVM native-image compilation, the output is a
-native binary that can be traced through the C/C++ ADG pipeline.
-
-- **Advantages**: Full kernel-level interception of the native
-  compilation.
-- **Disadvantages**: Only applies to GraalVM native-image builds, not
-  standard JVM builds.
-- **Effort**: High.
-
-### Recommendation
-
-**Option 1 (Java Agent)** provides the best balance of fidelity and
-deployability. It captures the same source → binary provenance chain
-as strace, requires only a single environment variable change
-(`MAVEN_OPTS`), works on any OS/architecture, and requires no
-`SYS_PTRACE` capability. This is the approach used by JaCoCo (code
-coverage), OpenTelemetry (observability), and other production-grade
-Java instrumentation tools.
-
-## Implications for Documentation
-
-The test repository README and diagrams should accurately describe what
-the Java sidecar actually does:
-
-- **Phase 1** should be called "Build Artifact Analysis" or "Post-Build
-  Provenance Analysis" — not "Build Interception"
-- The build-interception comparison diagram should be honest about the
-  sidecar side: it analyzes artifacts, it does not intercept the build
-- The value proposition should focus on what's genuinely different:
-  source→binary provenance chain, build-system dependency resolution,
-  scope awareness, and open-standard output
+| Dimension | Assessment |
+|-----------|-----------|
+| **What it is** | Post-build provenance analysis |
+| **What it is NOT** | Build interception |
+| **Fidelity vs standalone** | Lower — infers vs observes |
+| **Enterprise deployability** | Higher — no SYS_PTRACE, no build changes, any OS/arch |
+| **vs industry SCA tools** | Better — compiler-inserted provenance + exact dependency resolution |
+| **Best alternative?** | None that preserves zero-build-modification sidecar constraint |
