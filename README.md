@@ -79,7 +79,7 @@ The GitHub Actions workflow builds the project inside an
 `amazoncorretto:21-al2023` Docker container with an unmodified
 `mvn package -q`. This produces
 `target/omnibor-java-testapp-1.0.0.jar` with all compiled `.class`
-files.
+files. No omnibor-analysis tooling is present during the build.
 
 ### 2. Sidecar Analysis Phase
 
