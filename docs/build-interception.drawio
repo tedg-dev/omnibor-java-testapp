@@ -22,7 +22,7 @@
         <mxCell id="sa3" parent="sa-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;" value="3. bomsh_create_bom_java.py&#xa;&#xa;Parses strace log to map:&#xa;  javac opened App.java → wrote App.class&#xa;  jar opened App.class → wrote app.jar&#xa;&#xa;Produces: OmniBOR treedb (SHA-256 provenance)" vertex="1">
           <mxGeometry height="110" width="460" x="20" y="370" as="geometry" />
         </mxCell>
-        <mxCell id="sa4" parent="sa-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" value="4. SPDX Generation&#xa;&#xa;java_generator.py combines treedb +&#xa;dependency graph → SPDX 2.3 JSON" vertex="1">
+        <mxCell id="sa4" parent="sa-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" value="4. SPDX Generation + Visualization&#xa;&#xa;java_generator.py combines treedb +&#xa;dependency graph → SPDX 2.3 JSON + HTML viz" vertex="1">
           <mxGeometry height="70" width="460" x="20" y="500" as="geometry" />
         </mxCell>
         <mxCell id="esa12" edge="1" parent="sa-group" source="sa1" style="rounded=1;" target="sa2">
@@ -49,7 +49,7 @@
         <mxCell id="sc3" parent="sc-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" value="3. mvn dependency:tree -DoutputType=dot&#xa;&#xa;Runs Maven&#39;s built-in dep:tree plugin:&#xa;  &quot;com.example:testapp:1.0.0&quot; -&gt; &quot;org.jsoup:jsoup:1.18.3&quot;&#xa;  &quot;com.example:testapp:1.0.0&quot; -&gt; &quot;org.apache.logging.log4j:log4j-core:2.24.3&quot;&#xa;  &quot;org.apache.logging.log4j:log4j-core:2.24.3&quot; -&gt; &quot;org.apache.logging.log4j:log4j-api:2.24.3&quot;&#xa;&#xa;Parser extracts: artifact coords, scope, direct vs transitive" vertex="1">
           <mxGeometry height="130" width="460" x="20" y="430" as="geometry" />
         </mxCell>
-        <mxCell id="sc4" parent="sc-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" value="4. SPDX Generation&#xa;&#xa;java_generator.py combines treedb +&#xa;dependency graph → SPDX 2.3 JSON" vertex="1">
+        <mxCell id="sc4" parent="sc-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;fontStyle=1;" value="4. SPDX Generation + Visualization&#xa;&#xa;java_generator.py combines treedb +&#xa;dependency graph → SPDX 2.3 JSON + HTML viz" vertex="1">
           <mxGeometry height="70" width="460" x="20" y="580" as="geometry" />
         </mxCell>
         <mxCell id="esc12" edge="1" parent="sc-group" source="sc1" style="rounded=1;" target="sc2">
