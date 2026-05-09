@@ -44,9 +44,15 @@ environments where:
 - The JDK vendor may be Corretto, Temurin, or GraalVM — not OpenJDK
 - Teams cannot modify their build process to add strace wrappers
 
-The **sidecar mode** solves this by running alongside the build without
-any kernel instrumentation. This test project proves it works in a
-realistic, non-Ubuntu, non-OpenJDK environment.
+The **sidecar mode** solves this by analyzing build artifacts after the
+build completes — no kernel instrumentation, no build modifications.
+This test project proves it works in a realistic, non-Ubuntu,
+non-OpenJDK environment.
+
+> **Important:** The Java sidecar performs **post-build provenance
+> analysis**, not build interception. For a detailed comparison of what
+> this means and how it compares to standalone mode and other SCA tools,
+> see [Java Sidecar: Analysis Method](docs/java-sidecar-analysis-method.md).
 
 ## Environment Comparison
 
@@ -89,7 +95,7 @@ After the build completes, the sidecar container
 | **JAVA_HOME** | `/usr/lib/jvm/java-21-openjdk-amd64` |
 | **Maven** | Apache 3.9.15 + 3.6.3 |
 | **Python** | 3.x + omnibor-analysis pipeline |
-| **Analysis method** | Bytecode SourceFile attr + `mvn dependency:tree` |
+| **Analysis method** | Post-build: bytecode SourceFile attr + `mvn dependency:tree` |
 | **bomsh scripts** | `bomsh_create_bom_java.py` (bytecode reader only) |
 | **Build instrumentation** | **None** — no strace, no bomtrace |
 | **SYS_PTRACE** | **Not required** |
@@ -138,12 +144,13 @@ This produces `target/omnibor-java-testapp-1.0.0.jar` with all compiled
 `.class` files. The build runs on a completely different OS and JDK than
 our standalone analysis environment.
 
-### 2. Sidecar Analysis Phase
+### 2. Sidecar Post-Build Analysis Phase
 
-[![Build Interception: Standalone vs Sidecar](docs/build-interception.png)](docs/build-interception.png)
+[![Build Observation: Standalone vs Sidecar](docs/build-interception.png)](docs/build-interception.png)
 *Click to view full-size diagram ([editable source](docs/build-interception.drawio))*
 
-After the build, the omnibor-analysis sidecar container runs:
+After the build completes, the omnibor-analysis sidecar container
+analyzes the build artifacts:
 
 ```
 docker run ghcr.io/tedg-dev/omnibor-sidecar:latest \
@@ -151,18 +158,24 @@ docker run ghcr.io/tedg-dev/omnibor-sidecar:latest \
     --repo omnibor-java-testapp --mode sidecar --skip-clone
 ```
 
-The sidecar performs two independent analyses:
+The sidecar performs two independent post-build analyses:
 
 #### a) Bytecode Provenance (bomsh\_create\_bom\_java.py)
 
 Scans every `.class` file in `target/` and reads the `SourceFile`
 bytecode attribute (inserted by `javac` per JLS §13.1). This maps
-each class back to its `.java` source file without needing strace.
+each class back to its `.java` source file, creating an OmniBOR treedb
+with SHA-256 hashes linking source → class → JAR. This is
+**compiler-inserted provenance metadata** — not signature matching
+against a database of known components.
 
 #### b) Dependency Graph (mvn dependency:tree)
 
 Runs `mvn dependency:tree -DoutputType=dot` to capture the full
-declared dependency graph in DOT format. The parser extracts:
+declared dependency graph as resolved by Maven's own dependency
+resolver. Unlike binary SCA tools that guess component identity from
+signatures, this gives the **exact build-time resolution** including
+version conflict resolution and scope. The parser extracts:
 
 - **Direct dependencies** (compile scope → `DEPENDS_ON`)
 - **Transitive dependencies** (pulled in by direct deps → `DEPENDS_ON`)
@@ -217,14 +230,14 @@ itself — all analysis runs post-build.
 The sidecar analysis (Phase 1 + Phase 2) runs inside the sidecar
 container after the build completes:
 
-| Run | Date (UTC) | Phase 1: Build Interception | Phase 2: SPDX Generation | Total Analysis | Notes |
-|-----|-----------|---------------------------|-------------------------|---------------|-------|
+| Run | Date (UTC) | Phase 1: Provenance Analysis | Phase 2: SPDX Generation | Total Analysis | Notes |
+|-----|-----------|------------------------------|-------------------------|---------------|-------|
 | 6 | 2026-05-08 23:27 | ~10s *(est.)* | ~4s *(est.)* | 14.4s | Pipeline 14.4s; CI step 20s (includes container startup) |
 | 5 | 2026-05-08 23:17 | ~10s *(est.)* | ~4s *(est.)* | 14.1s | Pipeline 14.1s; CI step 20s (includes container startup) |
 
-**Phase 1 — Build Interception** includes:
+**Phase 1 — Post-Build Provenance Analysis** includes:
 - `mvn clean` + `mvn package -DskipTests` (re-build inside sidecar)
-- `bomsh_create_bom_java.py` (bytecode SourceFile attr → treedb)
+- `bomsh_create_bom_java.py` (bytecode SourceFile attr → OmniBOR treedb)
 - `mvn dependency:tree -DoutputType=dot` (dep graph capture)
 
 **Phase 2 — SPDX Generation** includes:
@@ -308,7 +321,8 @@ python3 tests/compare_spdx.py \
 |---------|---------|-----------------|
 | System Architecture | [`architecture.png`](docs/architecture.png) | [`architecture.drawio`](docs/architecture.drawio) |
 | CI/CD Pipeline Flow | [`ci-pipeline-flow.png`](docs/ci-pipeline-flow.png) | [`ci-pipeline-flow.drawio`](docs/ci-pipeline-flow.drawio) |
-| Build Interception | [`build-interception.png`](docs/build-interception.png) | [`build-interception.drawio`](docs/build-interception.drawio) |
+| Build Observation | [`build-interception.png`](docs/build-interception.png) | [`build-interception.drawio`](docs/build-interception.drawio) |
+| Analysis Method | — | [`java-sidecar-analysis-method.md`](docs/java-sidecar-analysis-method.md) |
 | SPDX Generation | [`spdx-generation.png`](docs/spdx-generation.png) | [`spdx-generation.drawio`](docs/spdx-generation.drawio) |
 
 ## License
