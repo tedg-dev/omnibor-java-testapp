@@ -31,7 +31,7 @@
         <mxCell id="sidecar" parent="gha-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=5;" value="omnibor-sidecar:latest&#xa;&#xa;Analysis Container&#xa;&#xa;• Ubuntu 22.04 base&#xa;• Python 3 + app/ pipeline&#xa;• OpenJDK 21 + Maven 3.9&#xa;• bomsh scripts (no bomtrace)&#xa;• NO SYS_PTRACE&#xa;&#xa;python3 analyze.py&#xa;  --mode sidecar --skip-clone" vertex="1">
           <mxGeometry height="220" width="260" x="340" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="output" parent="gha-group" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=10;size=20;" value="CI Artifacts&#xa;&#xa;spdx-output/&#xa;├── spdx/java/testapp/&#xa;│   ├── *_build.spdx.json&#xa;│   └── *_analyzed.spdx.json&#xa;├── build-logs/&#xa;└── runtime/" vertex="1">
+        <mxCell id="output" parent="gha-group" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=10;size=20;" value="CI Artifacts&#xa;&#xa;spdx-output/&#xa;├── spdx/java/testapp/&#xa;│   ├── *_build.spdx.json&#xa;│   ├── *_build.spdx.html&#xa;│   ├── *_analyzed.spdx.json&#xa;│   └── *_analyzed.spdx.html&#xa;├── build-logs/&#xa;└── runtime/" vertex="1">
           <mxGeometry height="170" width="210" x="670" y="50" as="geometry" />
         </mxCell>
         <mxCell id="vol" parent="gha-group" style="shape=parallelogram;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999;fontSize=11;perimeter=parallelogramPerimeter;" value="Shared Volume&#xa;(project source + target/)" vertex="1">
@@ -43,7 +43,7 @@
         <mxCell id="e3" edge="1" parent="gha-group" source="vol" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;fontSize=10;" target="sidecar">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e4" edge="1" parent="gha-group" source="sidecar" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=10;fontStyle=2;" target="output" value="SPDX JSON">
+        <mxCell id="e4" edge="1" parent="gha-group" source="sidecar" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=10;fontStyle=2;" target="output" value="SPDX JSON + HTML viz">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e5" edge="1" parent="1" source="ghcr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontStyle=2;fontSize=10;" target="sidecar" value="docker pull">
