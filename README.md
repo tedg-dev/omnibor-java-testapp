@@ -81,6 +81,14 @@ The GitHub Actions workflow builds the project inside an
 `target/omnibor-java-testapp-1.0.0.jar` with all compiled `.class`
 files. No omnibor-analysis tooling is present during the build.
 
+> **Note:** This zero-modification sidecar approach is the closest
+> architecture to standalone build interception available without
+> `SYS_PTRACE`, and exceeds industry post-build scanners (Black Duck,
+> Syft, Trivy) by using compiler-inserted provenance metadata and
+> exact build-tool dependency resolution rather than signature
+> matching. See [Analysis Method](docs/java-sidecar-analysis-method.md)
+> for the full industry comparison.
+
 ### 2. Sidecar Analysis Phase
 
 After the build completes, the sidecar container analyzes the
@@ -91,14 +99,6 @@ artifacts:
   OmniBOR treedb with SHA-256 hashes linking source → class → JAR
 - **Dependency graph** — queries `mvn dependency:tree` for the exact
   resolved dependency hierarchy with scope classification
-
-> **Note:** This zero-modification sidecar approach is the closest
-> architecture to standalone build interception available without
-> `SYS_PTRACE`, and exceeds industry post-build scanners (Black Duck,
-> Syft, Trivy) by using compiler-inserted provenance metadata and
-> exact build-tool dependency resolution rather than signature
-> matching. See [Analysis Method](docs/java-sidecar-analysis-method.md)
-> for the full industry comparison.
 
 ### 3. SPDX Generation
 
