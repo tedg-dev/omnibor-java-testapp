@@ -51,11 +51,13 @@ service.
 
 | Job | Runner | Purpose |
 |-----|--------|--------|
-| `baseline` | Runner A | Build only (timing reference) |
-| `build-and-phase1` | Runner B | Build + sidecar Phase 1 → upload artifacts |
-| `phase2-analyze` | Runner C | Download artifacts → Phase 2 SPDX generation |
+| `build-and-phase1` | Runner A | Build + sidecar Phase 1 → upload artifacts |
+| `phase2-analyze` | Runner B | Download artifacts → Phase 2 SPDX generation |
 
-Communication between jobs uses only:
+A separate `baseline` job runs the build without the sidecar to
+capture unmodified build time for overhead comparison.
+
+Communication between the phase-isolated jobs uses only:
 - **`phase1_manifest.json`** — paths, config, GitOID SHA-256 hashes
 - **`actions/upload-artifact` / `actions/download-artifact`** — artifact transfer via Azure Blob Storage
 
