@@ -40,6 +40,36 @@ see [Java Sidecar: Analysis Method](docs/java-sidecar-analysis-method.md).
 | **Sidecar** | `ghcr.io/tedg-dev/omnibor-sidecar` — analyzes build artifacts, generates SPDX |
 | **Output** | SPDX 2.3 JSON + HTML visualizations uploaded as CI artifacts |
 
+## Phase Isolation
+
+The CI/CD pipeline implements **phase isolation** — Phase 1 (build +
+interception) and Phase 2 (SPDX generation) run in **separate GitHub
+Actions jobs** on **different runners** with **no shared filesystem**.
+This validates the enterprise deployment model where Phase 1 runs at
+the customer's build site and Phase 2 runs in a separate analysis
+service.
+
+| Job | Runner | Purpose |
+|-----|--------|--------|
+| `baseline` | Runner A | Build only (timing reference) |
+| `build-and-phase1` | Runner B | Build + sidecar Phase 1 → upload artifacts |
+| `phase2-analyze` | Runner C | Download artifacts → Phase 2 SPDX generation |
+
+Communication between jobs uses only:
+- **`phase1_manifest.json`** — paths, config, GitOID SHA-256 hashes
+- **`actions/upload-artifact` / `actions/download-artifact`** — artifact transfer via Azure Blob Storage
+
+### Isolation Proofs (validated [2026-05-13](https://github.com/tedg-dev/omnibor-java-testapp/actions/runs/25828276164))
+
+| # | Proof | Evidence |
+|---|-------|----------|
+| 1 | Different runners | 3 unique Worker IDs across 3 Azure regions |
+| 2 | Artifact transfer only | Upload/download with SHA-256 verification |
+| 3 | Manifest communication | Path mapping verified across host boundaries |
+| 4 | GitOID integrity | Artifact hashes verified by Phase 2 |
+| 5 | SPDX from Phase 2 only | Zero SPDX before Phase 2; 2 files + 2 HTML after |
+| 6 | Build interception correct | 3 treedb entries, 6 dependencies |
+
 ## Two Independent Containers
 
 The pipeline uses two completely independent containers — different
@@ -73,9 +103,9 @@ Chosen to exercise different dependency graph shapes:
 [![CI/CD Pipeline Flow](docs/ci-pipeline-flow.png)](docs/ci-pipeline-flow.png)
 *Click to view full-size diagram ([editable source](docs/ci-pipeline-flow.drawio))*
 
-### 1. Build Phase (Amazon Linux 2023)
+### 1. Build (Job 1 — Amazon Linux 2023)
 
-The GitHub Actions workflow builds the project inside an
+The `build-and-phase1` job builds the project inside an
 `amazoncorretto:21-al2023` Docker container with an unmodified
 `mvn package -q`. This produces
 `target/omnibor-java-testapp-1.0.0.jar` with all compiled `.class`
@@ -89,58 +119,84 @@ files. No omnibor-analysis tooling is present during the build.
 > matching. See [Analysis Method](docs/java-sidecar-analysis-method.md)
 > for the full industry comparison.
 
-### 2. Sidecar Analysis Phase
+### 2. Phase 1 — Build Interception (Job 1 — sidecar)
 
-After the build completes, the sidecar container analyzes the
-artifacts:
+After the build, the sidecar container runs Phase 1 analysis:
 
 - **Bytecode provenance** — reads the `SourceFile` attribute from
   every `.class` file (compiler-inserted per JLS §13.1), creating an
   OmniBOR treedb with SHA-256 hashes linking source → class → JAR
 - **Dependency graph** — queries `mvn dependency:tree` for the exact
   resolved dependency hierarchy with scope classification
+- **Manifest** — writes `phase1_manifest.json` with artifact paths,
+  config, and GitOID SHA-256 hashes for integrity verification
 
-### 3. SPDX Generation
+Phase 1 artifacts are uploaded via `actions/upload-artifact`.
+
+### 3. Phase 2 — SPDX Generation (Job 2 — separate runner)
+
+The `phase2-analyze` job runs on a **different runner** with no
+shared filesystem. It downloads Phase 1 artifacts, verifies GitOID
+integrity, and generates SPDX 2.3 JSON documents:
 
 [![SPDX Generation Flow](docs/spdx-generation.png)](docs/spdx-generation.png)
 *Click to view full-size diagram ([editable source](docs/spdx-generation.drawio))*
-
-Both data sources are combined into SPDX 2.3 JSON documents:
 
 | SBOM Type | Contents |
 |-----------|----------|
 | **Build** | Root package + all deps + build tools (`javac`, Maven) |
 | **Analyzed** | Root package + all deps (no build tools) |
 
-SPDX files are uploaded as GitHub Actions artifacts.
+SPDX files are uploaded as GitHub Actions artifacts (90-day retention).
+
+## Toggle Mechanism
+
+The sidecar jobs (`build-and-phase1` + `phase2-analyze`) are
+controlled by a generic, language-agnostic toggle — the same pattern
+used by Jenkins, GitLab CI, and Azure DevOps for optional pipeline
+stages:
+
+| Source | Mechanism | Scope |
+|--------|-----------|-------|
+| **Manual trigger** | `workflow_dispatch` input `enable_sbom` (boolean) | Per-run choice |
+| **Default** | Repository variable `vars.OMNIBOR_ENABLED` | Push/PR triggers |
+
+The `baseline` job always runs regardless of toggle, providing a
+timing reference.
 
 ## Performance
 
-Each CI run executes two parallel jobs: **baseline** (build only) and
-**instrumented** (build + sidecar SPDX). The sidecar adds zero
+Each CI run executes three jobs: `baseline` (build only),
+`build-and-phase1` (build + sidecar Phase 1), and `phase2-analyze`
+(SPDX generation on a separate runner). The sidecar adds zero
 overhead to the build itself — all analysis runs post-build.
 
-| Run | Baseline | Instrumented Total | Sidecar Analysis | Overhead |
-|-----|----------|-------------------|-----------------|----------|
-| 6 | 32s | 52s | 20s (14.4s pipeline) | **+63%** |
-| 5 | 36s | 56s | 20s (14.1s pipeline) | **+56%** |
+| Job | Duration | Notes |
+|-----|----------|-------|
+| `baseline` | 34s | Build only (timing reference) |
+| `build-and-phase1` | 71s | Build + Phase 1 + artifact upload |
+| `phase2-analyze` | 38s | Download + Phase 2 SPDX generation |
+| **Total wall time** | ~2 min | Includes image pulls on both runners |
 
 ## Output
 
-SPDX artifacts from CI runs are stored in `output/spdx/<timestamp>/`:
+SPDX artifacts are uploaded as GitHub Actions artifacts with 90-day
+retention. Download via the Actions UI or CLI:
+
+```bash
+gh run download <run-id> \
+  -R tedg-dev/omnibor-java-testapp \
+  -n spdx-output -D ./output/
+```
+
+Each run produces:
 
 ```
-output/spdx/
-├── 2026-05-08_2328/                                        # Run #6
-│   ├── omnibor-java-testapp-1.0.0_build.spdx.json
-│   ├── omnibor-java-testapp-1.0.0_build.spdx.html
-│   ├── omnibor-java-testapp-1.0.0_analyzed.spdx.json
-│   └── omnibor-java-testapp-1.0.0_analyzed.spdx.html
-└── 2026-05-08_2318/                                        # Run #5
-    ├── omnibor-java-testapp-1.0.0_build.spdx.json
-    ├── omnibor-java-testapp-1.0.0_build.spdx.html
-    ├── omnibor-java-testapp-1.0.0_analyzed.spdx.json
-    └── omnibor-java-testapp-1.0.0_analyzed.spdx.html
+spdx/java/omnibor-java-testapp/<timestamp>/
+├── omnibor-java-testapp-1.0.0_build.spdx.json
+├── omnibor-java-testapp-1.0.0_build.spdx.html
+├── omnibor-java-testapp-1.0.0_analyzed.spdx.json
+└── omnibor-java-testapp-1.0.0_analyzed.spdx.html
 ```
 
 - **JSON files** — SPDX 2.3 machine-readable SBOMs
@@ -177,9 +233,11 @@ mvn test
 |----------|-------------|
 | [Analysis Method](docs/java-sidecar-analysis-method.md) | How the sidecar works, industry comparison, fidelity assessment |
 | [Architecture](docs/architecture.png) | System architecture diagram ([source](docs/architecture.drawio)) |
-| [CI Pipeline Flow](docs/ci-pipeline-flow.png) | Build → analyze → SPDX pipeline ([source](docs/ci-pipeline-flow.drawio)) |
+| [CI Pipeline Flow](docs/ci-pipeline-flow.png) | Phase-isolated build → analyze → SPDX pipeline ([source](docs/ci-pipeline-flow.drawio)) |
 | [Build Observation](docs/build-interception.png) | Standalone vs sidecar comparison ([source](docs/build-interception.drawio)) |
 | [SPDX Generation](docs/spdx-generation.png) | Data flow into SPDX 2.3 ([source](docs/spdx-generation.drawio)) |
+| [Proof of Execution](https://github.com/tedg-dev/omnibor-analysis/blob/main/docs/features/phase-isolation/phase-isolation-cicd-results_2026-05-13.md) | Phase isolation CI/CD validation results (omnibor-analysis) |
+| [Phase Isolation Design](https://github.com/tedg-dev/omnibor-analysis/blob/main/docs/features/phase-isolation/phase-isolation-system-test.md) | System test design and proofs (omnibor-analysis) |
 
 ## License
 
