@@ -42,24 +42,25 @@ see [Java Sidecar: Analysis Method](docs/java-sidecar-analysis-method.md).
 
 ## Phase Isolation
 
-The CI/CD pipeline implements **phase isolation** — Phase 1 (build +
-interception) and Phase 2 (SPDX generation) run in **separate GitHub
-Actions jobs** on **different runners** with **no shared filesystem**.
-This validates the enterprise deployment model where Phase 1 runs at
-the customer's build site and Phase 2 runs in a separate analysis
-service.
+All omnibor-analysis test repos follow the same **two-runner,
+phase-isolated** CI/CD pattern — regardless of language:
 
-| Job | Runner | Purpose |
-|-----|--------|--------|
-| `build-and-phase1` | Runner A | Build + sidecar Phase 1 → upload artifacts |
-| `phase2-analyze` | Runner B | Download artifacts → Phase 2 SPDX generation |
+| Runner | Job | What it does |
+|--------|-----|-------------|
+| **Runner A** (instrumented build) | `build-and-phase1` | Build the project + run sidecar build interception → upload artifacts |
+| **Runner B** (post-build analysis) | `phase2-analyze` | Download artifacts → verify integrity → generate SPDX SBOMs |
+
+The two runners have **no shared filesystem**. Runner B receives
+only what Runner A explicitly uploads. This validates the enterprise
+deployment model where the instrumented build runs at the customer's
+build site and SBOM generation runs in a separate analysis service.
 
 A separate `baseline` job runs the build without the sidecar to
 capture unmodified build time for overhead comparison.
 
-Communication between the phase-isolated jobs uses only:
-- **`phase1_manifest.json`** — paths, config, GitOID SHA-256 hashes
-- **`actions/upload-artifact` / `actions/download-artifact`** — artifact transfer via Azure Blob Storage
+Communication between the phase-isolated runners uses only:
+- **`phase1_manifest.json`** — artifact paths, config, GitOID SHA-256 hashes
+- **`actions/upload-artifact` / `actions/download-artifact`** — artifact transfer (no shared filesystem)
 
 ### Isolation Proofs (validated [2026-05-13](https://github.com/tedg-dev/omnibor-java-testapp/actions/runs/25828276164))
 
