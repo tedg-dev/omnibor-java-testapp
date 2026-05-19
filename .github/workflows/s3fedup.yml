@@ -1,0 +1,56 @@
+# S3 Upload Test — Prototype for SPDX artifact storage
+#
+# Manual-trigger only. Does not interfere with sbom.yml.
+# Uncomment AWS OIDC + S3 steps once the AWS side is configured.
+
+name: S3 Upload Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # OIDC for AWS (needed when AWS steps are uncommented)
+  contents: read
+  packages: read
+
+jobs:
+  test-s3-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Create test SPDX files
+        run: |
+          mkdir -p spdx-output/java/omnibor-java-testapp/${{ github.run_id }}
+          echo '{"spdxVersion":"SPDX-2.3","name":"test_build"}' \
+            > spdx-output/java/omnibor-java-testapp/${{ github.run_id }}/test_build.spdx.json
+          echo '{"spdxVersion":"SPDX-2.3","name":"test_analyzed"}' \
+            > spdx-output/java/omnibor-java-testapp/${{ github.run_id }}/test_analyzed.spdx.json
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4
+        with:
+          role-to-assume: arn:aws:iam::930218373905:role/github-actions-s3
+          aws-region: us-east-1
+
+      - name: Upload SPDX to S3
+        run: |
+          aws s3 cp spdx-output/ \
+            "s3://omnibor-spdx-artifacts/" \
+            --recursive \
+            --exclude "*" --include "*.spdx.json"
+
+      - name: Verify output
+        run: |
+          echo "=== Files that would be uploaded to S3 ==="
+          find spdx-output/ -type f
+          echo ""
+          echo "Run ID: ${{ github.run_id }}"
+          echo "Target: s3://omnibor-spdx-artifacts/java/omnibor-java-testapp/${{ github.run_id }}/"
+          echo ""
+          echo "=== File contents ==="
+          for f in spdx-output/java/omnibor-java-testapp/${{ github.run_id }}/*.spdx.json; do
+            echo "--- $(basename $f) ---"
+            cat "$f"
+          done
