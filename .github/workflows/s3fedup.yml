@@ -1,56 +1,106 @@
-# S3 Upload Test — Prototype for SPDX artifact storage
+# S3 Upload Test — Build + Phase 1 → S3
 #
 # Manual-trigger only. Does not interfere with sbom.yml.
-# Uncomment AWS OIDC + S3 steps once the AWS side is configured.
+# Builds the project, runs Phase 1 sidecar (build interception),
+# then uploads Phase 1 artifacts + build output to S3.
+# A separate Phase 2 consumer will pull from S3 to generate SPDX.
 
 name: S3 Upload Test
 
 on:
   workflow_dispatch:
+    inputs:
+      upload_build_output:
+        description: "Include JARs and class files in S3 upload"
+        type: boolean
+        default: true
 
 permissions:
-  id-token: write   # OIDC for AWS (needed when AWS steps are uncommented)
+  id-token: write   # OIDC for AWS
   contents: read
   packages: read
 
+env:
+  SIDECAR_IMAGE: ghcr.io/tedg-dev/omnibor-sidecar:latest
+  MVN_VER: "3.9.8"
+  S3_BUCKET: omnibor-spdx-artifacts
+  S3_PREFIX: java/omnibor-java-testapp
+
 jobs:
-  test-s3-upload:
+  build-phase1-s3:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - name: Create test SPDX files
+      # ── Build ──
+      - name: Build on Amazon Linux 2023
         run: |
-          mkdir -p spdx-output/java/omnibor-java-testapp/${{ github.run_id }}
-          echo '{"spdxVersion":"SPDX-2.3","name":"test_build"}' \
-            > spdx-output/java/omnibor-java-testapp/${{ github.run_id }}/test_build.spdx.json
-          echo '{"spdxVersion":"SPDX-2.3","name":"test_analyzed"}' \
-            > spdx-output/java/omnibor-java-testapp/${{ github.run_id }}/test_analyzed.spdx.json
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            -e MVN_VER="${{ env.MVN_VER }}" \
+            amazoncorretto:21-al2023 \
+            bash -c '
+              dnf install -y tar gzip &&
+              curl -fsSL "https://archive.apache.org/dist/maven/maven-3/${MVN_VER}/binaries/apache-maven-${MVN_VER}-bin.tar.gz" -o /tmp/mvn.tar.gz &&
+              tar xzf /tmp/mvn.tar.gz -C /opt &&
+              export PATH="/opt/apache-maven-${MVN_VER}/bin:$PATH" &&
+              mvn --version &&
+              mvn package -q
+            '
 
+      # ── Phase 1: Build interception ──
+      - name: Login to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772  # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull sidecar image
+        run: docker pull "$SIDECAR_IMAGE"
+
+      - name: "Phase 1: Build interception via sidecar"
+        run: |
+          mkdir -p "${{ github.workspace }}/spdx-output"
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace/repos/omnibor-java-testapp" \
+            -v "${{ github.workspace }}/spdx-output:/workspace/output" \
+            -e OMNIBOR_MODE=sidecar \
+            "$SIDECAR_IMAGE" \
+            python3 /workspace/app/analyze.py \
+              --repo omnibor-java-testapp \
+              --mode sidecar \
+              --phase build \
+              --skip-clone
+
+      # ── Upload to S3 ──
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4
         with:
           role-to-assume: arn:aws:iam::930218373905:role/github-actions-s3
           aws-region: us-east-1
 
-      - name: Upload SPDX to S3
+      - name: Upload Phase 1 artifacts to S3
         run: |
-          aws s3 cp spdx-output/ \
-            "s3://omnibor-spdx-artifacts/" \
-            --recursive \
-            --exclude "*" --include "*.spdx.json"
+          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.run_id }}"
+          echo "[INFO] Uploading Phase 1 artifacts to ${S3_PATH}/phase1/"
+          aws s3 cp spdx-output/ "${S3_PATH}/phase1/" --recursive
 
-      - name: Verify output
+      - name: Upload build output to S3
+        if: inputs.upload_build_output
         run: |
-          echo "=== Files that would be uploaded to S3 ==="
-          find spdx-output/ -type f
+          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.run_id }}"
+          echo "[INFO] Uploading build output to ${S3_PATH}/build/"
+          aws s3 cp target/ "${S3_PATH}/build/" --recursive
+
+      - name: Verify S3 upload
+        run: |
+          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.run_id }}"
+          echo "=== S3 contents ==="
+          aws s3 ls "${S3_PATH}/" --recursive
           echo ""
-          echo "Run ID: ${{ github.run_id }}"
-          echo "Target: s3://omnibor-spdx-artifacts/java/omnibor-java-testapp/${{ github.run_id }}/"
-          echo ""
-          echo "=== File contents ==="
-          for f in spdx-output/java/omnibor-java-testapp/${{ github.run_id }}/*.spdx.json; do
-            echo "--- $(basename $f) ---"
-            cat "$f"
-          done
+          echo "=== Phase 2 can pull from ==="
+          echo "  Phase 1: ${S3_PATH}/phase1/"
+          echo "  Build:   ${S3_PATH}/build/"
