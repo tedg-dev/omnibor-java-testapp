@@ -1,5 +1,30 @@
 # S3 Federated Uploads — Phase 1 Artifacts to S3 and Phase 2 Fargate Orchestrator
 
+## Table of Contents
+
+- [Overview](#overview)
+- [S3 Path Structure](#s3-path-structure)
+- [AWS Setup](#aws-setup)
+  - [Step 1: Create the S3 Bucket](#step-1-create-the-s3-bucket)
+  - [Step 2: Create the OIDC Identity Provider](#step-2-create-the-oidc-identity-provider)
+  - [Step 3: Create the IAM Role](#step-3-create-the-iam-role)
+- [GitHub Actions Workflow](#github-actions-workflow)
+  - [Triggering the Workflow](#triggering-the-workflow)
+- [Phase 2 Consumer Architecture](#phase-2-consumer-architecture)
+  - [Event-Driven Flow](#event-driven-flow)
+  - [Container Launch Options](#container-launch-options)
+  - [Go Orchestrator Logic](#go-orchestrator-logic)
+- [ECS Deployment via AWS CDK](#ecs-deployment-via-aws-cdk)
+  - [Architecture](#architecture)
+  - [CDK Stack (TypeScript)](#cdk-stack-typescript)
+  - [Key Design Decisions](#key-design-decisions)
+  - [Cost Estimate (low volume)](#cost-estimate-low-volume)
+- [SPDX Post-Processing Pipeline](#spdx-post-processing-pipeline)
+  - [Post-Processing Options](#post-processing-options)
+  - [CDK Addition](#cdk-addition)
+  - [Extending the Orchestrator](#extending-the-orchestrator)
+- [Appendix: Multiple OIDC Providers (GitHub.com + GitHub Enterprise)](#appendix-multiple-oidc-providers-githubcom--github-enterprise)
+
 ## Overview
 
 S3 replaces GitHub Actions artifacts as the transport between Phase 1 and
