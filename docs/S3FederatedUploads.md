@@ -1,4 +1,4 @@
-# S3 Federated Uploads — Phase 1 Artifacts to S3
+# S3 Federated Uploads — Phase 1 Artifacts to S3 and Phase 2 Fargate Orchestrator
 
 ## Overview
 
