@@ -21,7 +21,7 @@ permissions:
   packages: read
 
 env:
-  SIDECAR_IMAGE: ghcr.io/tedg-dev/omnibor-sidecar:latest
+  SIDECAR_IMAGE: ghcr.io/kkaple/omnibor-sidecar:dev
   MVN_VER: "3.9.8"
   S3_BUCKET: omnibor-spdx-artifacts
   S3_PREFIX: java/omnibor-java-testapp
