@@ -84,20 +84,20 @@ jobs:
 
       - name: Upload Phase 1 artifacts to S3
         run: |
-          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.run_id }}"
+          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.sha }}/${{ github.run_id }}"
           echo "[INFO] Uploading Phase 1 artifacts to ${S3_PATH}/phase1/"
           aws s3 cp spdx-output/ "${S3_PATH}/phase1/" --recursive
 
       - name: Upload build output to S3
         if: inputs.upload_build_output
         run: |
-          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.run_id }}"
+          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.sha }}/${{ github.run_id }}"
           echo "[INFO] Uploading build output to ${S3_PATH}/build/"
           aws s3 cp target/ "${S3_PATH}/build/" --recursive
 
       - name: Verify S3 upload
         run: |
-          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.run_id }}"
+          S3_PATH="s3://${{ env.S3_BUCKET }}/${{ env.S3_PREFIX }}/${{ github.sha }}/${{ github.run_id }}"
           echo "=== S3 contents ==="
           aws s3 ls "${S3_PATH}/" --recursive
           echo ""
