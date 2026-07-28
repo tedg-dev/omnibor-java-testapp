@@ -1,10 +1,10 @@
-# OmniBOR Analysis Java Sidecar Test Environment
+# bisbom-gen Java Sidecar Test Environment
 
 > **This is the Java sidecar test environment.** The
-> [omnibor-analysis](https://github.com/tedg-dev/omnibor-analysis)
+> [bisbom-gen](https://github.com/tedg-dev/bisbom-gen)
 > project maintains a separate test environment for each supported
 > language — each with its own repository, build toolchain, OS, and
-> CI/CD pipeline. The goal is to prove that the omnibor-analysis
+> CI/CD pipeline. The goal is to prove that the bisbom-gen
 > sidecar produces correct SPDX SBOMs from any language's build
 > artifacts, on any OS, without modifying the build process.
 >
@@ -16,7 +16,7 @@
 > | Rust | *(planned)* | cargo | *(TBD)* |
 
 This project is a realistic Java application that simulates a product
-team integrating the omnibor-analysis sidecar container into their
+team integrating the bisbom-gen sidecar container into their
 existing CI/CD pipeline to produce SPDX 2.3 SBOMs — without requiring
 `SYS_PTRACE`, `strace`, or any modifications to the build process.
 
@@ -37,12 +37,12 @@ see [Java Sidecar: Analysis Method](docs/java-sidecar-analysis-method.md).
 |-----------|-------------|
 | **Test App** | Maven project depending on jsoup, Log4j2, Bouncy Castle |
 | **CI Pipeline** | GitHub Actions: build on Amazon Linux 2023 / Corretto 21 |
-| **Sidecar** | `ghcr.io/tedg-dev/omnibor-sidecar` — analyzes build artifacts, generates SPDX |
+| **Sidecar** | `ghcr.io/tedg-dev/bisbom-sidecar` — analyzes build artifacts, generates SPDX |
 | **Output** | SPDX 2.3 JSON + HTML visualizations uploaded as CI artifacts |
 
 ## Phase Isolation
 
-All omnibor-analysis test repos follow the same **two-runner,
+All bisbom-gen test repos follow the same **two-runner,
 phase-isolated** CI/CD pattern — regardless of language:
 
 | Runner | Job | What it does |
@@ -62,7 +62,7 @@ Communication between the phase-isolated runners uses only:
 - **`phase1_manifest.json`** — artifact paths, config, GitOID SHA-256 hashes
 - **`actions/upload-artifact` / `actions/download-artifact`** — artifact transfer (no shared filesystem)
 
-### Isolation Proofs (validated [2026-05-13](https://github.com/tedg-dev/omnibor-java-testapp/actions/runs/25828276164))
+### Isolation Proofs (validated [2026-05-13](https://github.com/tedg-dev/bisbom-java-testapp/actions/runs/25828276164))
 
 | # | Proof | Evidence |
 |---|-------|----------|
@@ -82,13 +82,13 @@ analyzes the artifacts.
 
 | Aspect | CI Build Container | Sidecar Container |
 |--------|-------------------|-------------------|
-| **Image** | `amazoncorretto:21-al2023` | `ghcr.io/tedg-dev/omnibor-sidecar` |
+| **Image** | `amazoncorretto:21-al2023` | `ghcr.io/tedg-dev/bisbom-sidecar` |
 | **OS** | Amazon Linux 2023 (`dnf`) | Ubuntu 22.04 (`apt`) |
 | **JDK** | Amazon Corretto 21 | OpenJDK 17 + 21 |
 | **Build runs here?** | **Yes** (`mvn package -q`) | No |
 | **SPDX generated here?** | No | **Yes** |
 | **SYS_PTRACE** | Not used | Not required |
-| **omnibor-analysis tooling** | Not installed | Installed |
+| **bisbom-gen tooling** | Not installed | Installed |
 
 ## Dependencies
 
@@ -111,8 +111,8 @@ Chosen to exercise different dependency graph shapes:
 The `build-and-phase1` job builds the project inside an
 `amazoncorretto:21-al2023` Docker container with an unmodified
 `mvn package -q`. This produces
-`target/omnibor-java-testapp-1.0.0.jar` with all compiled `.class`
-files. No omnibor-analysis tooling is present during the build.
+`target/bisbom-java-testapp-1.0.0.jar` with all compiled `.class`
+files. No bisbom-gen tooling is present during the build.
 
 > **Note:** This zero-modification sidecar approach is the closest
 > architecture to standalone build interception available without
@@ -162,7 +162,7 @@ stages:
 | Source | Mechanism | Scope |
 |--------|-----------|-------|
 | **Manual trigger** | `workflow_dispatch` input `enable_sbom` (boolean) | Per-run choice |
-| **Default** | Repository variable `vars.OMNIBOR_ENABLED` | Push/PR triggers |
+| **Default** | Repository variable `vars.BISBOM_ENABLED` | Push/PR triggers |
 
 The `baseline` job always runs regardless of toggle, providing a
 timing reference.
@@ -188,18 +188,18 @@ retention. Download via the Actions UI or CLI:
 
 ```bash
 gh run download <run-id> \
-  -R tedg-dev/omnibor-java-testapp \
+  -R tedg-dev/bisbom-java-testapp \
   -n spdx-output -D ./output/
 ```
 
 Each run produces:
 
 ```
-spdx/java/omnibor-java-testapp/<timestamp>/
-├── omnibor-java-testapp-1.0.0_build.spdx.json
-├── omnibor-java-testapp-1.0.0_build.spdx.html
-├── omnibor-java-testapp-1.0.0_analyzed.spdx.json
-└── omnibor-java-testapp-1.0.0_analyzed.spdx.html
+spdx/java/bisbom-java-testapp/<timestamp>/
+├── bisbom-java-testapp-1.0.0_build.spdx.json
+├── bisbom-java-testapp-1.0.0_build.spdx.html
+├── bisbom-java-testapp-1.0.0_analyzed.spdx.json
+└── bisbom-java-testapp-1.0.0_analyzed.spdx.html
 ```
 
 - **JSON files** — SPDX 2.3 machine-readable SBOMs
@@ -221,7 +221,7 @@ mvn package
 ### Run
 
 ```bash
-java -jar target/omnibor-java-testapp-1.0.0.jar
+java -jar target/bisbom-java-testapp-1.0.0.jar
 ```
 
 ### Test
@@ -239,8 +239,8 @@ mvn test
 | [CI Pipeline Flow](docs/ci-pipeline-flow.png) | Phase-isolated build → analyze → SPDX pipeline ([source](docs/ci-pipeline-flow.drawio)) |
 | [Build Observation](docs/build-interception.png) | Standalone vs sidecar comparison ([source](docs/build-interception.drawio)) |
 | [SPDX Generation](docs/spdx-generation.png) | Data flow into SPDX 2.3 ([source](docs/spdx-generation.drawio)) |
-| [Proof of Execution](https://github.com/tedg-dev/omnibor-analysis/blob/main/docs/features/phase-isolation/phase-isolation-cicd-results_2026-05-13.md) | Phase isolation CI/CD validation results (omnibor-analysis) |
-| [Phase Isolation Design](https://github.com/tedg-dev/omnibor-analysis/blob/main/docs/features/phase-isolation/phase-isolation-system-test.md) | System test design and proofs (omnibor-analysis) |
+| [Proof of Execution](https://github.com/tedg-dev/bisbom-gen/blob/main/docs/features/phase-isolation/phase-isolation-cicd-results_2026-05-13.md) | Phase isolation CI/CD validation results (bisbom-gen) |
+| [Phase Isolation Design](https://github.com/tedg-dev/bisbom-gen/blob/main/docs/features/phase-isolation/phase-isolation-system-test.md) | System test design and proofs (bisbom-gen) |
 
 ## License
 

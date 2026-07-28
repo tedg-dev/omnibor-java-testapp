@@ -1,22 +1,22 @@
-<mxfile host="Electron" agent="OmniBOR">
+<mxfile host="Electron" agent="bisbom">
   <diagram id="arch-1" name="System Architecture">
     <mxGraphModel dx="1232" dy="853" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="title" parent="1" style="text;html=1;fontSize=20;fontStyle=1;align=center;verticalAlign=middle;" value="OmniBOR Java Sidecar — System Architecture" vertex="1">
+        <mxCell id="title" parent="1" style="text;html=1;fontSize=20;fontStyle=1;align=center;verticalAlign=middle;" value="bisbom Java Sidecar — System Architecture" vertex="1">
           <mxGeometry height="40" width="500" x="400" y="20" as="geometry" />
         </mxCell>
         <mxCell id="gh-group" parent="1" style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1;" value="GitHub" vertex="1">
           <mxGeometry height="340" width="340" x="40" y="80" as="geometry" />
         </mxCell>
-        <mxCell id="testapp-repo" parent="gh-group" style="shape=document;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;" value="tedg-dev/omnibor-java-testapp&#xa;&#xa;• Maven project (pom.xml)&#xa;• App.java (jsoup + log4j + BC)&#xa;• .github/workflows/sbom.yml&#xa;• docs/ (drawio diagrams)" vertex="1">
+        <mxCell id="testapp-repo" parent="gh-group" style="shape=document;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;" value="tedg-dev/bisbom-java-testapp&#xa;&#xa;• Maven project (pom.xml)&#xa;• App.java (jsoup + log4j + BC)&#xa;• .github/workflows/sbom.yml&#xa;• docs/ (drawio diagrams)" vertex="1">
           <mxGeometry height="120" width="280" x="20" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="analysis-repo" parent="gh-group" style="shape=document;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;" value="tedg-dev/omnibor-analysis&#xa;&#xa;• app/ (Python pipeline code)&#xa;• docker/ (Dockerfile sidecar)&#xa;• tests/golden/ (SPDX baselines)&#xa;• .github/workflows/publish-sidecar.yml" vertex="1">
+        <mxCell id="analysis-repo" parent="gh-group" style="shape=document;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;" value="tedg-dev/bisbom-gen&#xa;&#xa;• app/ (Python pipeline code)&#xa;• docker/ (Dockerfile sidecar)&#xa;• tests/golden/ (SPDX baselines)&#xa;• .github/workflows/publish-sidecar.yml" vertex="1">
           <mxGeometry height="120" width="280" x="20" y="190" as="geometry" />
         </mxCell>
-        <mxCell id="ghcr" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;size=15;" value="GitHub Container Registry&#xa;(ghcr.io)&#xa;&#xa;ghcr.io/tedg-dev/&#xa;  omnibor-sidecar:latest" vertex="1">
+        <mxCell id="ghcr" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;size=15;" value="GitHub Container Registry&#xa;(ghcr.io)&#xa;&#xa;ghcr.io/tedg-dev/&#xa;  bisbom-sidecar:latest" vertex="1">
           <mxGeometry height="130" width="200" x="460" y="100" as="geometry" />
         </mxCell>
         <mxCell id="e1" edge="1" parent="1" source="analysis-repo" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontStyle=2;fontSize=10;" target="ghcr" value="docker push">
@@ -28,7 +28,7 @@
         <mxCell id="al2023" parent="gha-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=5;" value="amazoncorretto:21-al2023&#xa;&#xa;Build Container&#xa;&#xa;• Amazon Linux 2023 (dnf/rpm)&#xa;• Amazon Corretto JDK 21&#xa;• Maven (dnf install)&#xa;&#xa;mvn package -DskipTests -q&#xa;→ target/*.jar" vertex="1">
           <mxGeometry height="190" width="260" x="20" y="50" as="geometry" />
         </mxCell>
-        <mxCell id="sidecar" parent="gha-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=5;" value="omnibor-sidecar:latest&#xa;&#xa;Analysis Container&#xa;&#xa;• Ubuntu 22.04 base&#xa;• Python 3 + app/ pipeline&#xa;• OpenJDK 21 + Maven 3.9&#xa;• bomsh scripts (no bomtrace)&#xa;• NO SYS_PTRACE&#xa;&#xa;python3 analyze.py&#xa;  --mode sidecar --skip-clone" vertex="1">
+        <mxCell id="sidecar" parent="gha-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=5;" value="bisbom-sidecar:latest&#xa;&#xa;Analysis Container&#xa;&#xa;• Ubuntu 22.04 base&#xa;• Python 3 + app/ pipeline&#xa;• OpenJDK 21 + Maven 3.9&#xa;• bomsh scripts (no bomtrace)&#xa;• NO SYS_PTRACE&#xa;&#xa;python3 analyze.py&#xa;  --mode sidecar --skip-clone" vertex="1">
           <mxGeometry height="220" width="260" x="340" y="50" as="geometry" />
         </mxCell>
         <mxCell id="output" parent="gha-group" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=left;spacingLeft=10;size=20;" value="CI Artifacts&#xa;&#xa;spdx-output/&#xa;├── spdx/java/testapp/&#xa;│   ├── *_build.spdx.json&#xa;│   ├── *_build.spdx.html&#xa;│   ├── *_analyzed.spdx.json&#xa;│   └── *_analyzed.spdx.html&#xa;├── build-logs/&#xa;└── runtime/" vertex="1">
@@ -57,7 +57,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="compare" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;dashed=1;dashPattern=5 5;" value="Golden File Comparison&#xa;(omnibor-analysis)&#xa;&#xa;gh run download → compare&#xa;against tests/golden/spdx/" vertex="1">
+        <mxCell id="compare" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;dashed=1;dashPattern=5 5;" value="Golden File Comparison&#xa;(bisbom-gen)&#xa;&#xa;gh run download → compare&#xa;against tests/golden/spdx/" vertex="1">
           <mxGeometry height="100" width="220" x="1020" y="565" as="geometry" />
         </mxCell>
         <mxCell id="e7" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666;fontStyle=2;fontSize=10;dashed=1;" value="download artifacts">

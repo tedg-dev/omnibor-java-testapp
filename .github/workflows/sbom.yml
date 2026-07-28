@@ -1,4 +1,4 @@
-# OmniBOR Sidecar — Phase-Isolated SPDX Generation
+# bisbom Sidecar — Phase-Isolated SPDX Generation
 #
 # Phase-isolated CI/CD pipeline:
 #   Job 1 (build-and-phase1): Build on Amazon Linux 2023 + Phase 1 sidecar
@@ -9,7 +9,7 @@
 # Phase 1 runs at the customer build site and Phase 2 runs in a separate
 # analysis service (e.g., Corona).
 #
-# Toggle: set repository variable OMNIBOR_ENABLED=false to disable sidecar
+# Toggle: set repository variable BISBOM_ENABLED=false to disable sidecar
 #         jobs, or use workflow_dispatch to choose per-run.
 
 name: Build & SPDX
@@ -27,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       enable_sbom:
-        description: "Generate SPDX SBOM via OmniBOR sidecar"
+        description: "Generate SPDX SBOM via bisbom sidecar"
         type: boolean
         default: true
 
@@ -40,7 +40,7 @@ permissions:
   packages: read
 
 env:
-  SIDECAR_IMAGE: ghcr.io/tedg-dev/omnibor-sidecar:latest
+  SIDECAR_IMAGE: ghcr.io/tedg-dev/bisbom-sidecar:latest
   MVN_VER: "3.9.8"
 
 jobs:
@@ -72,7 +72,7 @@ jobs:
   build-and-phase1:
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.enable_sbom) ||
-      (github.event_name != 'workflow_dispatch' && vars.OMNIBOR_ENABLED != 'false')
+      (github.event_name != 'workflow_dispatch' && vars.BISBOM_ENABLED != 'false')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -109,12 +109,12 @@ jobs:
         run: |
           mkdir -p "${{ github.workspace }}/spdx-output"
           docker run --rm \
-            -v "${{ github.workspace }}:/workspace/repos/omnibor-java-testapp" \
+            -v "${{ github.workspace }}:/workspace/repos/bisbom-java-testapp" \
             -v "${{ github.workspace }}/spdx-output:/workspace/output" \
             -e OMNIBOR_MODE=sidecar \
             "$SIDECAR_IMAGE" \
             python3 /workspace/app/analyze.py \
-              --repo omnibor-java-testapp \
+              --repo bisbom-java-testapp \
               --mode sidecar \
               --phase build \
               --skip-clone
@@ -142,7 +142,7 @@ jobs:
     needs: build-and-phase1
     if: >-
       (github.event_name == 'workflow_dispatch' && inputs.enable_sbom) ||
-      (github.event_name != 'workflow_dispatch' && vars.OMNIBOR_ENABLED != 'false')
+      (github.event_name != 'workflow_dispatch' && vars.BISBOM_ENABLED != 'false')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (for pom.xml structure)
@@ -193,20 +193,20 @@ jobs:
         run: |
           MANIFEST=$(find spdx-output/ -name "phase1_manifest.json" -type f | head -n 1)
           # Map host manifest path to container path
-          # Host: spdx-output/omnibor/java/<repo>/<ts>/phase1_manifest.json
-          # Container: /workspace/output/omnibor/java/<repo>/<ts>/phase1_manifest.json
+          # Host: spdx-output/bisbom/java/<repo>/<ts>/phase1_manifest.json
+          # Container: /workspace/output/bisbom/java/<repo>/<ts>/phase1_manifest.json
           CONTAINER_MANIFEST="/workspace/output/${MANIFEST#spdx-output/}"
 
           echo "[INFO] Host manifest: $MANIFEST"
           echo "[INFO] Container manifest: $CONTAINER_MANIFEST"
 
           docker run --rm \
-            -v "${{ github.workspace }}:/workspace/repos/omnibor-java-testapp" \
+            -v "${{ github.workspace }}:/workspace/repos/bisbom-java-testapp" \
             -v "${{ github.workspace }}/spdx-output:/workspace/output" \
             -e OMNIBOR_MODE=sidecar \
             "$SIDECAR_IMAGE" \
             python3 /workspace/app/analyze.py \
-              --repo omnibor-java-testapp \
+              --repo bisbom-java-testapp \
               --mode sidecar \
               --phase spdx \
               --manifest "$CONTAINER_MANIFEST" \

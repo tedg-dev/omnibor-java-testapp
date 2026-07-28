@@ -5,19 +5,19 @@
          https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.example.omnibor</groupId>
-    <artifactId>omnibor-java-testapp</artifactId>
+    <groupId>com.example.bisbom</groupId>
+    <artifactId>bisbom-java-testapp</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>OmniBOR Java Test Application</name>
+    <name>bisbom Java Test Application</name>
     <description>
         Realistic Java application for end-to-end validation of
-        OmniBOR sidecar SPDX generation in CI/CD pipelines.
+        bisbom sidecar SPDX generation in CI/CD pipelines.
         Depends on jsoup, Log4j2, and Bouncy Castle to exercise
         the Maven dependency tree analysis.
     </description>
-    <url>https://github.com/tedg-dev/omnibor-java-testapp</url>
+    <url>https://github.com/tedg-dev/bisbom-java-testapp</url>
 
     <licenses>
         <license>
@@ -31,7 +31,7 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
 
-        <!-- Dependency versions pinned to match omnibor-analysis golden files -->
+        <!-- Dependency versions pinned to match bisbom-gen golden files -->
         <jsoup.version>1.18.3</jsoup.version>
         <log4j.version>2.24.3</log4j.version>
         <bouncycastle.version>1.80</bouncycastle.version>
@@ -91,7 +91,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.example.omnibor.testapp.App</mainClass>
+                            <mainClass>com.example.bisbom.testapp.App</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

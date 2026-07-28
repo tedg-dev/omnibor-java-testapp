@@ -1,4 +1,4 @@
-<mxfile host="Electron" agent="OmniBOR">
+<mxfile host="Electron" agent="bisbom">
   <diagram id="cicd-1" name="CI/CD Pipeline Flow">
     <mxGraphModel dx="1149" dy="866" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1000" math="0" shadow="0">
       <root>
@@ -25,7 +25,7 @@
         <mxCell id="s3c" parent="s3-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;" value="mvn package -q&#xa;(compile + JAR)" vertex="1">
           <mxGeometry height="50" width="160" x="440" y="40" as="geometry" />
         </mxCell>
-        <mxCell id="s3out" parent="s3-group" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontSize=10;align=left;spacingLeft=8;size=15;" value="Output:&#xa;target/omnibor-java-testapp-1.0.0.jar&#xa;target/classes/**/*.class" vertex="1">
+        <mxCell id="s3out" parent="s3-group" style="shape=note;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;fontSize=10;align=left;spacingLeft=8;size=15;" value="Output:&#xa;target/bisbom-java-testapp-1.0.0.jar&#xa;target/classes/**/*.class" vertex="1">
           <mxGeometry height="55" width="300" x="250" y="110" as="geometry" />
         </mxCell>
         <mxCell id="e3ab" edge="1" parent="s3-group" source="s3a" style="rounded=1;" target="s3b">
@@ -37,10 +37,10 @@
         <mxCell id="e3co" edge="1" parent="s3-group" source="s3c" style="rounded=1;dashed=1;" target="s3out">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="s4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="4. docker pull&#xa;ghcr.io/tedg-dev/omnibor-sidecar:latest" vertex="1">
+        <mxCell id="s4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" value="4. docker pull&#xa;ghcr.io/tedg-dev/bisbom-sidecar:latest" vertex="1">
           <mxGeometry height="60" width="280" x="80" y="540" as="geometry" />
         </mxCell>
-        <mxCell id="s5-group" parent="1" style="swimlane;startSize=25;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontStyle=1;" value="5. Sidecar Analysis Phase — OmniBOR Container" vertex="1">
+        <mxCell id="s5-group" parent="1" style="swimlane;startSize=25;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;fontStyle=1;" value="5. Sidecar Analysis Phase — bisbom Container" vertex="1">
           <mxGeometry height="200" width="700" x="80" y="650" as="geometry" />
         </mxCell>
         <mxCell id="s5a" parent="s5-group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" value="bomsh_create_bom_java.py&#xa;&#xa;Scan target/*.class files&#xa;Read SourceFile bytecode attr&#xa;Map: class → source.java" vertex="1">
@@ -94,7 +94,7 @@
         <mxCell id="leg2" parent="1" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" value="AL2023 build container" vertex="1">
           <mxGeometry height="30" width="160" x="910" y="190" as="geometry" />
         </mxCell>
-        <mxCell id="leg3" parent="1" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="OmniBOR sidecar container" vertex="1">
+        <mxCell id="leg3" parent="1" style="rounded=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="bisbom sidecar container" vertex="1">
           <mxGeometry height="30" width="160" x="910" y="230" as="geometry" />
         </mxCell>
         <mxCell id="leg4" parent="1" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="Container registry" vertex="1">
