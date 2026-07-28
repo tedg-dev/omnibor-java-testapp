@@ -1,4 +1,4 @@
-package com.example.omnibor.testapp;
+package com.example.bisbom.testapp;
 
 import java.security.MessageDigest;
 import java.security.Security;
@@ -13,7 +13,7 @@ import org.jsoup.nodes.Document;
 /**
  * Simple application that exercises jsoup, Log4j2, and
  * Bouncy Castle to produce a realistic Maven dependency
- * graph for OmniBOR sidecar SPDX validation.
+ * graph for bisbom sidecar SPDX validation.
  */
 public final class App {
 
@@ -54,7 +54,7 @@ public final class App {
     public static void main(String[] args) {
         String html = args.length > 0
             ? args[0]
-            : "<html><body><h1>OmniBOR Test</h1>"
+            : "<html><body><h1>bisbom Test</h1>"
               + "<p>Sidecar SPDX validation.</p>"
               + "</body></html>";
 

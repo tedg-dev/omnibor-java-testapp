@@ -1,7 +1,7 @@
 # Java Sidecar: Analysis Method
 
 This document provides an honest, detailed assessment of how
-omnibor-analysis generates SPDX SBOMs for Java in sidecar mode — what
+bisbom-gen generates SPDX SBOMs for Java in sidecar mode — what
 it does, what it doesn't do, how it compares to standalone mode, and
 why the current approach is the best option for a true sidecar
 deployment.
@@ -112,15 +112,15 @@ sidecar model.
 | **OWASP Dependency-Check** | Known-vulnerability matching from dependency metadata | Same as sidecar |
 
 These require zero build changes and analyze the same post-build
-artifacts that the omnibor-analysis sidecar analyzes.
+artifacts that the bisbom-gen sidecar analyzes.
 
-### Where omnibor-analysis sidecar fits
+### Where bisbom-gen sidecar fits
 
-The omnibor-analysis Java sidecar is a **Category 2 tool** — a
+The bisbom-gen Java sidecar is a **Category 2 tool** — a
 post-build artifact scanner. It accesses the same artifacts as Syft,
 Trivy, and Black Duck. What differentiates it:
 
-| Aspect | Typical SCA (Black Duck, Syft) | omnibor-analysis sidecar |
+| Aspect | Typical SCA (Black Duck, Syft) | bisbom-gen sidecar |
 |--------|-------------------------------|--------------------------|
 | **Source → binary mapping** | No | Yes — `SourceFile` bytecode attribute (compiler-inserted) |
 | **Dependency resolution** | Inferred from signatures or manifest files | Exact — from the build tool's own resolver |
@@ -150,7 +150,7 @@ sidecar constraint**:
 Instruments JVM file I/O via `java.lang.instrument` (the API used
 by JaCoCo, OpenTelemetry, and ByteBuddy).
 
-- **Requires**: Setting `MAVEN_OPTS=-javaagent:omnibor-agent.jar`
+- **Requires**: Setting `MAVEN_OPTS=-javaagent:bisbom-agent.jar`
   (build modification)
 - **Maven fork problem**: `maven-compiler-plugin` defaults to
   `fork=false`, meaning `javac` runs in-process inside the Maven
@@ -284,7 +284,7 @@ ClassFile {
 }
 ```
 
-omnibor-analysis uses path similarity heuristics to resolve the simple
+bisbom-gen uses path similarity heuristics to resolve the simple
 name to the actual source file in the project tree.
 
 **Works well for:**

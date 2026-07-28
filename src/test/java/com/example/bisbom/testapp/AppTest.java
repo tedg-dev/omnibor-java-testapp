@@ -1,4 +1,4 @@
-package com.example.omnibor.testapp;
+package com.example.bisbom.testapp;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
